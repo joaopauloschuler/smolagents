@@ -134,6 +134,7 @@ class Model:
     def __init__(self):
         self.last_input_token_count = None
         self.last_output_token_count = None
+        self.verbose = False
 
     def get_token_counts(self):
         return {
@@ -238,6 +239,10 @@ class HfApiModel(Model):
             messages, role_conversions=tool_role_conversions
         )
 
+        if self.verbose:
+          for log in messages:
+            print('*** Role:'+log['role']+' Content:'+log['content'])
+
         # Send messages to the Hugging Face Inference API
         if grammar is not None:
             output = self.client.chat_completion(
@@ -336,6 +341,10 @@ class TransformersModel(Model):
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
         )
+
+        if self.verbose:
+          for log in messages:
+            print('*** Role:'+log['role']+' Content:'+log['content'])
 
         # Get LLM output
         prompt = self.tokenizer.apply_chat_template(
