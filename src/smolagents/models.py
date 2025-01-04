@@ -47,6 +47,7 @@ DEFAULT_CODEAGENT_REGEX_GRAMMAR = {
     "value": "Thought: .+?\\nCode:\\n```(?:py|python)?\\n(?:.|\\s)+?\\n```<end_action>",
 }
 
+DEFAULT_MAX_TOKENS = 6400
 
 class MessageRole(str, Enum):
     USER = "user"
@@ -147,7 +148,7 @@ class Model:
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ):
         raise NotImplementedError
 
@@ -156,7 +157,7 @@ class Model:
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         """Process the input messages and return the model's response.
 
@@ -209,7 +210,7 @@ class HfApiModel(Model):
     ...     token="your_hf_token_here",
     ... )
     >>> messages = [{"role": "user", "content": "Explain quantum mechanics in simple terms."}]
-    >>> response = engine(messages, stop_sequences=["END"], max_tokens=6400)
+    >>> response = engine(messages, stop_sequences=["END"], max_tokens=DEFAULT_MAX_TOKENS)
     >>> print(response)
     "Quantum mechanics is the branch of physics that studies..."
     ```
@@ -232,7 +233,7 @@ class HfApiModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         """Generates a text completion for the given message list"""
         messages = get_clean_message_list(
@@ -336,7 +337,7 @@ class TransformersModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
@@ -434,7 +435,7 @@ class LiteLLMModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
@@ -457,7 +458,7 @@ class LiteLLMModel(Model):
         messages: List[Dict[str, str]],
         available_tools: List[Tool],
         stop_sequences: Optional[List[str]] = None,
-        max_tokens: int = 6400,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ):
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
