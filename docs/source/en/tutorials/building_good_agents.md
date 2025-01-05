@@ -87,7 +87,7 @@ def get_weather_api(location: str, date_time: str) -> str:
 
 Why is it bad?
 - there's no precision of the format that should be used for `date_time`
-- there's no detail on how location should
+- there's no detail on how location should be specified.
 - there's no logging mechanism tying to explicit failure cases like location not being in a proper format, or date_time not being properly formatted.
 - the output format is hard to understand
 
@@ -179,7 +179,7 @@ Then you can also use less powerful models but guide them better.
 
 Put yourself in the shoes of your model: if you were the model solving the task, would you struggle with the information available to you (from the system prompt + task formulation + tool description) ?
 
-Would you need some added clarifications? 
+Would you need some added clarifications?
 
 To provide extra information, we do not recommend to change the system prompt right away: the default system prompt has many adjustments that you do not want to mess up except if you understand the prompt very well.
 Better ways to guide your LLM engine are:
