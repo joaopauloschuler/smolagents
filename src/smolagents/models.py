@@ -47,7 +47,7 @@ DEFAULT_CODEAGENT_REGEX_GRAMMAR = {
     "value": "Thought: .+?\\nCode:\\n```(?:py|python)?\\n(?:.|\\s)+?\\n```<end_action>",
 }
 
-DEFAULT_MAX_TOKENS = 14000
+DEFAULT_MAX_TOKENS = 8000
 
 class MessageRole(str, Enum):
     USER = "user"
