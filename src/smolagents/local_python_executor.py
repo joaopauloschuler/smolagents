@@ -106,6 +106,7 @@ BASE_PYTHON_TOOLS = {
     "type": type,
     "open": open,
     "complex": complex,
+    "exec": exec,
 }
 
 
