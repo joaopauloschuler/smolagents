@@ -955,7 +955,9 @@ class CodeAgent(MultiStepAgent):
                     Text("Execution logs:", style="bold"),
                     Text(execution_logs),
                 ]
-            observation += "Execution logs:\n" + execution_logs
+            with open('last_run.py', "w") as text_file:
+              text_file.write(code_action)
+            observation += "Code saved to last_run.py. Execution logs:\n" + execution_logs
         except Exception as e:
             if isinstance(e, SyntaxError):
                 error_msg = (
