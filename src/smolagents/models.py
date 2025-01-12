@@ -59,6 +59,7 @@ try:
 except ImportError:
     is_litellm_available = False
 
+DEFAULT_MAX_TOKENS = 8000
 
 class MessageRole(str, Enum):
     USER = "user"
@@ -146,6 +147,7 @@ class Model:
     def __init__(self):
         self.last_input_token_count = None
         self.last_output_token_count = None
+        self.verbose = False
 
     def get_token_counts(self) -> Dict[str, int]:
         return {
@@ -158,7 +160,7 @@ class Model:
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> str:
         """Process the input messages and return the model's response.
 
@@ -211,7 +213,7 @@ class HfApiModel(Model):
     ...     token="your_hf_token_here",
     ... )
     >>> messages = [{"role": "user", "content": "Explain quantum mechanics in simple terms."}]
-    >>> response = engine(messages, stop_sequences=["END"], max_tokens=1500)
+    >>> response = engine(messages, stop_sequences=["END"], max_tokens=DEFAULT_MAX_TOKENS)
     >>> print(response)
     "Quantum mechanics is the branch of physics that studies..."
     ```
@@ -236,7 +238,7 @@ class HfApiModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> str:
         """
@@ -246,6 +248,10 @@ class HfApiModel(Model):
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
         )
+        if self.verbose:
+          for log in messages:
+            print('*** Role:'+log['role']+' Content:'+log['content'])
+
         if tools_to_call_from:
             response = self.client.chat.completions.create(
                 messages=messages,
@@ -338,12 +344,15 @@ class TransformersModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> str:
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
         )
+        if self.verbose:
+          for log in messages:
+            print('*** Role:'+log['role']+' Content:'+log['content'])
 
         if tools_to_call_from is not None:
             prompt_tensor = self.tokenizer.apply_chat_template(
@@ -422,7 +431,7 @@ class LiteLLMModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> str:
         messages = get_clean_message_list(
@@ -493,7 +502,7 @@ class OpenAIServerModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
+        max_tokens: int = DEFAULT_MAX_TOKENS,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> str:
         messages = get_clean_message_list(

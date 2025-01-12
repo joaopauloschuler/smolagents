@@ -105,7 +105,9 @@ BASE_PYTHON_TOOLS = {
     "setattr": setattr,
     "issubclass": issubclass,
     "type": type,
+    "open": open,
     "complex": complex,
+    "exec": exec,
 }
 
 
@@ -789,11 +791,14 @@ def evaluate_with(with_node, state, static_tools, custom_tools):
 
 def import_modules(expression, state, authorized_imports):
     def check_module_authorized(module_name):
-        module_path = module_name.split(".")
-        module_subpaths = [
-            ".".join(module_path[:i]) for i in range(1, len(module_path) + 1)
-        ]
-        return any(subpath in authorized_imports for subpath in module_subpaths)
+        if '*' in authorized_imports:
+          return True
+        else:            
+          module_path = module_name.split(".")
+          module_subpaths = [
+              ".".join(module_path[:i]) for i in range(1, len(module_path) + 1)
+          ]
+          return any(subpath in authorized_imports for subpath in module_subpaths)
 
     if isinstance(expression, ast.Import):
         for alias in expression.names:
