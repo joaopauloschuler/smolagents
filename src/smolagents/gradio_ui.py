@@ -85,7 +85,7 @@ def stream_to_gradio(
 class GradioUI:
     """A one-line interface to launch your agent in Gradio"""
 
-    def __init__(self, agent: MultiStepAgent, file_upload_folder: str | None=None):
+    def __init__(self, agent: MultiStepAgent, file_upload_folder: str | None = None):
         self.agent = agent
         self.file_upload_folder = file_upload_folder
         if self.file_upload_folder is not None:
@@ -100,7 +100,15 @@ class GradioUI:
             yield messages
         yield messages
 
-    def upload_file(self, file, allowed_file_types=["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]):
+    def upload_file(
+        self,
+        file,
+        allowed_file_types=[
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+        ],
+    ):
         """
         Handle file uploads, default allowed types are pdf, docx, and .txt
         """
@@ -110,18 +118,19 @@ class GradioUI:
             return "No file uploaded"
 
         # Check if file is in allowed filetypes
-        name = os.path.basename(file.name)
         try:
             mime_type, _ = mimetypes.guess_type(file.name)
         except Exception as e:
             return f"Error: {e}"
-        
+
         if mime_type not in allowed_file_types:
             return "File type disallowed"
-        
+
         # Sanitize file name
         original_name = os.path.basename(file.name)
-        sanitized_name = re.sub(r'[^\w\-.]', '_', original_name)  # Replace any non-alphanumeric, non-dash, or non-dot characters with underscores
+        sanitized_name = re.sub(
+            r"[^\w\-.]", "_", original_name
+        )  # Replace any non-alphanumeric, non-dash, or non-dot characters with underscores
 
         type_to_ext = {}
         for ext, t in mimetypes.types_map.items():
@@ -134,7 +143,9 @@ class GradioUI:
         sanitized_name = "".join(sanitized_name)
 
         # Save the uploaded file to the specified folder
-        file_path = os.path.join(self.file_upload_folder, os.path.basename(sanitized_name))
+        file_path = os.path.join(
+            self.file_upload_folder, os.path.basename(sanitized_name)
+        )
         shutil.copy(file.name, file_path)
 
         return f"File uploaded successfully to {self.file_upload_folder}"
@@ -155,9 +166,7 @@ class GradioUI:
                 upload_file = gr.File(label="Upload a file")
                 upload_status = gr.Textbox(label="Upload Status", interactive=False)
 
-                upload_file.change(
-                    self.upload_file, [upload_file], [upload_status]
-                )
+                upload_file.change(self.upload_file, [upload_file], [upload_status])
             text_input = gr.Textbox(lines=1, label="Chat Message")
             text_input.submit(
                 lambda s: (s, ""), [text_input], [stored_message, text_input]

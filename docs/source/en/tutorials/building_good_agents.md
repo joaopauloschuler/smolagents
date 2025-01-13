@@ -30,7 +30,7 @@ Giving an LLM some agency in your workflow introduces some risk of errors.
 
 Well-programmed agentic systems have good error logging and retry mechanisms anyway, so the LLM engine has a chance to self-correct their mistake. But to reduce the risk of LLM error to the maximum, you should simplify your workflow!
 
-Let's revisit the example from [intro_agents]: a bot that answers user queries for a surf trip company.
+Let's revisit the example from the [intro to agents](../conceptual_guides/intro_agents): a bot that answers user queries for a surf trip company.
 Instead of letting the agent do 2 different calls for "travel distance API" and "weather API" each time they are asked about a new surf spot, you could just make one unified tool "return_spot_information", a function that calls both APIs at once and returns their concatenated outputs to the user.
 
 This will reduce costs, latency, and error risk!
@@ -43,7 +43,7 @@ This leads to a few takeaways:
 
 ### Improve the information flow to the LLM engine
 
-Remember that your LLM engine is like a ~intelligent~ robot, tapped into a room with the only communication with the outside world being notes passed under a door.
+Remember that your LLM engine is like an *intelligent* robot, tapped into a room with the only communication with the outside world being notes passed under a door.
 
 It won't know of anything that happened if you don't explicitly put that into its prompt.
 
@@ -88,7 +88,7 @@ def get_weather_api(location: str, date_time: str) -> str:
 Why is it bad?
 - there's no precision of the format that should be used for `date_time`
 - there's no detail on how location should be specified.
-- there's no logging mechanism tying to explicit failure cases like location not being in a proper format, or date_time not being properly formatted.
+- there's no logging mechanism trying to make explicit failure cases like location not being in a proper format, or date_time not being properly formatted.
 - the output format is hard to understand
 
 If the tool call fails, the error trace logged in memory can help the LLM reverse engineer the tool to fix the errors. But why leave it with so much heavy lifting to do?

@@ -370,7 +370,7 @@ class TransformersModel(Model):
             )
         prompt_tensor = prompt_tensor.to(self.model.device)
         count_prompt_tokens = prompt_tensor["input_ids"].shape[1]
-        
+
         out = self.model.generate(
             **prompt_tensor,
             max_new_tokens=max_tokens,
