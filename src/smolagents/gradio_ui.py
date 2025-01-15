@@ -27,14 +27,15 @@ def pull_messages_from_step(step_log: AgentStep, test_mode: bool = True):
     """Extract ChatMessage objects from agent steps"""
     if isinstance(step_log, ActionStep):
         yield gr.ChatMessage(role="assistant", content=step_log.llm_output or "")
-        if step_log.tool_call is not None:
-            used_code = step_log.tool_call.name == "code interpreter"
-            content = step_log.tool_call.arguments
+        if step_log.tool_calls is not None:
+            first_tool_call = step_log.tool_calls[0]
+            used_code = first_tool_call.name == "code interpreter"
+            content = first_tool_call.arguments
             if used_code:
                 content = f"```py\n{content}\n```"
             yield gr.ChatMessage(
                 role="assistant",
-                metadata={"title": f"🛠️ Used tool {step_log.tool_call.name}"},
+                metadata={"title": f"🛠️ Used tool {first_tool_call.name}"},
                 content=str(content),
             )
         if step_log.observations is not None:
@@ -85,7 +86,7 @@ def stream_to_gradio(
 class GradioUI:
     """A one-line interface to launch your agent in Gradio"""
 
-    def __init__(self, agent: MultiStepAgent, file_upload_folder: str | None=None):
+    def __init__(self, agent: MultiStepAgent, file_upload_folder: str | None = None):
         self.agent = agent
         self.file_upload_folder = file_upload_folder
         if self.file_upload_folder is not None:
@@ -100,28 +101,36 @@ class GradioUI:
             yield messages
         yield messages
 
-    def upload_file(self, file, allowed_file_types=["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]):
+    def upload_file(
+        self,
+        file,
+        file_uploads_log,
+        allowed_file_types=[
+            "application/pdf",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+        ],
+    ):
         """
-        Handle file uploads, default allowed types are pdf, docx, and .txt
+        Handle file uploads, default allowed types are .pdf, .docx, and .txt
         """
 
-        # Check if file is uploaded
         if file is None:
             return "No file uploaded"
 
-        # Check if file is in allowed filetypes
-        name = os.path.basename(file.name)
         try:
             mime_type, _ = mimetypes.guess_type(file.name)
         except Exception as e:
             return f"Error: {e}"
-        
+
         if mime_type not in allowed_file_types:
             return "File type disallowed"
-        
+
         # Sanitize file name
         original_name = os.path.basename(file.name)
-        sanitized_name = re.sub(r'[^\w\-.]', '_', original_name)  # Replace any non-alphanumeric, non-dash, or non-dot characters with underscores
+        sanitized_name = re.sub(
+            r"[^\w\-.]", "_", original_name
+        )  # Replace any non-alphanumeric, non-dash, or non-dot characters with underscores
 
         type_to_ext = {}
         for ext, t in mimetypes.types_map.items():
@@ -134,14 +143,28 @@ class GradioUI:
         sanitized_name = "".join(sanitized_name)
 
         # Save the uploaded file to the specified folder
-        file_path = os.path.join(self.file_upload_folder, os.path.basename(sanitized_name))
+        file_path = os.path.join(
+            self.file_upload_folder, os.path.basename(sanitized_name)
+        )
         shutil.copy(file.name, file_path)
 
-        return f"File uploaded successfully to {self.file_upload_folder}"
+        return gr.Textbox(
+            f"File uploaded: {file_path}", visible=True
+        ), file_uploads_log + [file_path]
+
+    def log_user_message(self, text_input, file_uploads_log):
+        return (
+            text_input
+            + f"\nYou have been provided with these files, which might be helpful or not: {file_uploads_log}"
+            if len(file_uploads_log) > 0
+            else "",
+            "",
+        )
 
     def launch(self):
         with gr.Blocks() as demo:
-            stored_message = gr.State([])
+            stored_messages = gr.State([])
+            file_uploads_log = gr.State([])
             chatbot = gr.Chatbot(
                 label="Agent",
                 type="messages",
@@ -152,16 +175,21 @@ class GradioUI:
             )
             # If an upload folder is provided, enable the upload feature
             if self.file_upload_folder is not None:
-                upload_file = gr.File(label="Upload a file")
-                upload_status = gr.Textbox(label="Upload Status", interactive=False)
-
+                upload_file = gr.File(label="Upload a file", height=1)
+                upload_status = gr.Textbox(
+                    label="Upload Status", interactive=False, visible=False
+                )
                 upload_file.change(
-                    self.upload_file, [upload_file], [upload_status]
+                    self.upload_file,
+                    [upload_file, file_uploads_log],
+                    [upload_status, file_uploads_log],
                 )
             text_input = gr.Textbox(lines=1, label="Chat Message")
             text_input.submit(
-                lambda s: (s, ""), [text_input], [stored_message, text_input]
-            ).then(self.interact_with_agent, [stored_message, chatbot], [chatbot])
+                self.log_user_message,
+                [text_input, file_uploads_log],
+                [stored_messages, text_input],
+            ).then(self.interact_with_agent, [stored_messages, chatbot], [chatbot])
 
         demo.launch()
 

@@ -395,7 +395,7 @@ class MultiStepAgent:
             }
         ]
         try:
-            return self.model(self.input_messages)
+            return self.model(self.input_messages).content
         except Exception as e:
             return f"Error in generating final LLM output:\n{e}"
 
@@ -665,7 +665,9 @@ You have been provided with these additional arguments, that you can access usin
 Now begin!""",
             }
 
-            answer_facts = self.model([message_prompt_facts, message_prompt_task])
+            answer_facts = self.model(
+                [message_prompt_facts, message_prompt_task]
+            ).content
 
             message_system_prompt_plan = {
                 "role": MessageRole.SYSTEM,
@@ -687,7 +689,7 @@ Now begin!""",
             answer_plan = self.model(
                 [message_system_prompt_plan, message_user_prompt_plan],
                 stop_sequences=["<end_plan>"],
-            )
+            ).content
 
             final_plan_redaction = f"""Here is the plan of action that I will follow to solve the task:
 ```
@@ -721,7 +723,7 @@ Now begin!""",
             }
             facts_update = self.model(
                 [facts_update_system_prompt] + agent_memory + [facts_update_message]
-            )
+            ).content
 
             # Redact updated plan
             plan_update_message = {
@@ -745,7 +747,7 @@ Now begin!""",
             plan_update = self.model(
                 [plan_update_message] + agent_memory + [plan_update_message_user],
                 stop_sequences=["<end_plan>"],
-            )
+            ).content
 
             # Log final facts and plan
             final_plan_redaction = PLAN_UPDATE_FINAL_PLAN_REDACTION.format(
@@ -806,9 +808,9 @@ class ToolCallingAgent(MultiStepAgent):
                 tools_to_call_from=list(self.tools.values()),
                 stop_sequences=["Observation:"],
             )
-            tool_calls = model_message.tool_calls[0]
-            tool_arguments = tool_calls.function.arguments
-            tool_name, tool_call_id = tool_calls.function.name, tool_calls.id
+            tool_call = model_message.tool_calls[0]
+            tool_name, tool_call_id = tool_call.function.name, tool_call.id
+            tool_arguments = tool_call.function.arguments
 
         except Exception as e:
             raise AgentGenerationError(
@@ -867,7 +869,10 @@ class ToolCallingAgent(MultiStepAgent):
                 updated_information = f"Stored '{observation_name}' in memory."
             else:
                 updated_information = str(observation).strip()
-            self.logger.log(f"Observations: {updated_information}", level=LogLevel.INFO)
+            self.logger.log(
+                f"Observations: {updated_information.replace('[', '|')}",  # escape potential rich-tag-like components
+                level=LogLevel.INFO,
+            )
             log_entry.observations = updated_information
             return None
 
@@ -884,7 +889,6 @@ class CodeAgent(MultiStepAgent):
         system_prompt: Optional[str] = None,
         grammar: Optional[Dict[str, str]] = None,
         additional_authorized_imports: Optional[List[str]] = None,
-        allow_all_imports: bool = False,
         planning_interval: Optional[int] = None,
         use_e2b_executor: bool = False,
         **kwargs,
@@ -899,18 +903,29 @@ class CodeAgent(MultiStepAgent):
             planning_interval=planning_interval,
             **kwargs,
         )
-
-        if ( allow_all_imports and
-            ( not(additional_authorized_imports is None) and (len(additional_authorized_imports)) > 0)):
-            raise Exception(
-                f"You passed both allow_all_imports and additional_authorized_imports. Please choose one."
-            )
-
-        if allow_all_imports: additional_authorized_imports=['*']
-
         self.additional_authorized_imports = (
             additional_authorized_imports if additional_authorized_imports else []
         )
+        self.authorized_imports = list(
+            set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports)
+        )
+        if "{{authorized_imports}}" not in self.system_prompt:
+            raise AgentError(
+                "Tag '{{authorized_imports}}' should be provided in the prompt."
+            )
+        self.system_prompt = self.system_prompt.replace(
+            "{{authorized_imports}}",
+            "You can import from any package you want."
+            if "*" in self.authorized_imports
+            else str(self.authorized_imports),
+        )
+
+        if "*" in self.additional_authorized_imports:
+            self.logger.log(
+                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
+                0,
+            )
+
         if use_e2b_executor and len(self.managed_agents) > 0:
             raise Exception(
                 f"You passed both {use_e2b_executor=} and some managed agents. Managed agents is not yet supported with remote code execution."
@@ -919,25 +934,15 @@ class CodeAgent(MultiStepAgent):
         all_tools = {**self.tools, **self.managed_agents}
         if use_e2b_executor:
             self.python_executor = E2BExecutor(
-                self.additional_authorized_imports, list(all_tools.values())
+                self.additional_authorized_imports,
+                list(all_tools.values()),
+                self.logger,
             )
         else:
             self.python_executor = LocalPythonInterpreter(
-                self.additional_authorized_imports, all_tools
+                self.additional_authorized_imports,
+                all_tools,
             )
-        if allow_all_imports:
-            self.authorized_imports = 'all imports without restriction'
-        else:
-            self.authorized_imports = list(
-                set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports)
-            )
-            if "{{authorized_imports}}" not in self.system_prompt:
-                raise AgentError(
-                    "Tag '{{authorized_imports}}' should be provided in the prompt."
-                )
-        self.system_prompt = self.system_prompt.replace(
-            "{{authorized_imports}}", str(self.authorized_imports)
-        )
 
     def step(self, log_entry: ActionStep) -> Union[None, Any]:
         """

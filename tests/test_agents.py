@@ -30,10 +30,10 @@ from smolagents.agents import (
 from smolagents.default_tools import PythonInterpreterTool
 from smolagents.tools import tool
 from smolagents.types import AgentImage, AgentText
-from huggingface_hub import (
-    ChatCompletionOutputMessage,
-    ChatCompletionOutputToolCall,
-    ChatCompletionOutputFunctionDefinition,
+from smolagents.models import (
+    ChatMessage,
+    ChatMessageToolCall,
+    ChatMessageToolCallDefinition,
 )
 
 
@@ -47,28 +47,28 @@ class FakeToolCallModel:
         self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None
     ):
         if len(messages) < 3:
-            return ChatCompletionOutputMessage(
+            return ChatMessage(
                 role="assistant",
                 content="",
                 tool_calls=[
-                    ChatCompletionOutputToolCall(
+                    ChatMessageToolCall(
                         id="call_0",
                         type="function",
-                        function=ChatCompletionOutputFunctionDefinition(
+                        function=ChatMessageToolCallDefinition(
                             name="python_interpreter", arguments={"code": "2*3.6452"}
                         ),
                     )
                 ],
             )
         else:
-            return ChatCompletionOutputMessage(
+            return ChatMessage(
                 role="assistant",
                 content="",
                 tool_calls=[
-                    ChatCompletionOutputToolCall(
+                    ChatMessageToolCall(
                         id="call_1",
                         type="function",
-                        function=ChatCompletionOutputFunctionDefinition(
+                        function=ChatMessageToolCallDefinition(
                             name="final_answer", arguments={"answer": "7.2904"}
                         ),
                     )
@@ -81,14 +81,14 @@ class FakeToolCallModelImage:
         self, messages, tools_to_call_from=None, stop_sequences=None, grammar=None
     ):
         if len(messages) < 3:
-            return ChatCompletionOutputMessage(
+            return ChatMessage(
                 role="assistant",
                 content="",
                 tool_calls=[
-                    ChatCompletionOutputToolCall(
+                    ChatMessageToolCall(
                         id="call_0",
                         type="function",
-                        function=ChatCompletionOutputFunctionDefinition(
+                        function=ChatMessageToolCallDefinition(
                             name="fake_image_generation_tool",
                             arguments={"prompt": "An image of a cat"},
                         ),
@@ -96,14 +96,14 @@ class FakeToolCallModelImage:
                 ],
             )
         else:
-            return ChatCompletionOutputMessage(
+            return ChatMessage(
                 role="assistant",
                 content="",
                 tool_calls=[
-                    ChatCompletionOutputToolCall(
+                    ChatMessageToolCall(
                         id="call_1",
                         type="function",
-                        function=ChatCompletionOutputFunctionDefinition(
+                        function=ChatMessageToolCallDefinition(
                             name="final_answer", arguments="image.png"
                         ),
                     )
@@ -114,7 +114,7 @@ class FakeToolCallModelImage:
 def fake_code_model(messages, stop_sequences=None, grammar=None) -> str:
     prompt = str(messages)
     if "special_marker" not in prompt:
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I should multiply 2 by 3.6452. special_marker
@@ -125,7 +125,7 @@ result = 2**3.6452
 """,
         )
     else:  # We're at step 2
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I can now answer the initial question
@@ -140,7 +140,7 @@ final_answer(7.2904)
 def fake_code_model_error(messages, stop_sequences=None) -> str:
     prompt = str(messages)
     if "special_marker" not in prompt:
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I should multiply 2 by 3.6452. special_marker
@@ -154,7 +154,7 @@ print("Ok, calculation done!")
 """,
         )
     else:  # We're at step 2
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I can now answer the initial question
@@ -169,7 +169,7 @@ final_answer("got an error")
 def fake_code_model_syntax_error(messages, stop_sequences=None) -> str:
     prompt = str(messages)
     if "special_marker" not in prompt:
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I should multiply 2 by 3.6452. special_marker
@@ -183,7 +183,7 @@ print("Ok, calculation done!")
 """,
         )
     else:  # We're at step 2
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I can now answer the initial question
@@ -196,7 +196,7 @@ final_answer("got an error")
 
 
 def fake_code_model_import(messages, stop_sequences=None) -> str:
-    return ChatCompletionOutputMessage(
+    return ChatMessage(
         role="assistant",
         content="""
 Thought: I can answer the question
@@ -212,7 +212,7 @@ final_answer("got an error")
 def fake_code_functiondef(messages, stop_sequences=None) -> str:
     prompt = str(messages)
     if "special_marker" not in prompt:
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: Let's define the function. special_marker
@@ -226,7 +226,7 @@ def moving_average(x, w):
 """,
         )
     else:  # We're at step 2
-        return ChatCompletionOutputMessage(
+        return ChatMessage(
             role="assistant",
             content="""
 Thought: I can now answer the initial question
@@ -241,7 +241,7 @@ final_answer(res)
 
 
 def fake_code_model_single_step(messages, stop_sequences=None, grammar=None) -> str:
-    return ChatCompletionOutputMessage(
+    return ChatMessage(
         role="assistant",
         content="""
 Thought: I should multiply 2 by 3.6452. special_marker
@@ -255,7 +255,7 @@ final_answer(result)
 
 
 def fake_code_model_no_return(messages, stop_sequences=None, grammar=None) -> str:
-    return ChatCompletionOutputMessage(
+    return ChatMessage(
         role="assistant",
         content="""
 Thought: I should multiply 2 by 3.6452. special_marker
@@ -313,9 +313,11 @@ class AgentTests(unittest.TestCase):
         assert isinstance(output, float)
         assert output == 7.2904
         assert agent.logs[1].task == "What is 2 multiplied by 3.6452?"
-        assert agent.logs[3].tool_call == ToolCall(
-            name="python_interpreter", arguments="final_answer(7.2904)", id="call_3"
-        )
+        assert agent.logs[3].tool_calls == [
+            ToolCall(
+                name="python_interpreter", arguments="final_answer(7.2904)", id="call_3"
+            )
+        ]
 
     def test_additional_args_added_to_task(self):
         agent = CodeAgent(tools=[], model=fake_code_model)
@@ -365,9 +367,10 @@ class AgentTests(unittest.TestCase):
             model=fake_code_model_no_return,  # use this callable because it never ends
             max_steps=5,
         )
-        agent.run("What is 2 multiplied by 3.6452?")
+        answer = agent.run("What is 2 multiplied by 3.6452?")
         assert len(agent.logs) == 8
         assert type(agent.logs[-1].error) is AgentMaxStepsError
+        assert isinstance(answer, str)
 
     def test_tool_descriptions_get_baked_in_system_prompt(self):
         tool = PythonInterpreterTool()
@@ -451,14 +454,14 @@ class AgentTests(unittest.TestCase):
             ):
                 if tools_to_call_from is not None:
                     if len(messages) < 3:
-                        return ChatCompletionOutputMessage(
+                        return ChatMessage(
                             role="assistant",
                             content="",
                             tool_calls=[
-                                ChatCompletionOutputToolCall(
+                                ChatMessageToolCall(
                                     id="call_0",
                                     type="function",
-                                    function=ChatCompletionOutputFunctionDefinition(
+                                    function=ChatMessageToolCallDefinition(
                                         name="search_agent",
                                         arguments="Who is the current US president?",
                                     ),
@@ -467,14 +470,14 @@ class AgentTests(unittest.TestCase):
                         )
                     else:
                         assert "Report on the current US president" in str(messages)
-                        return ChatCompletionOutputMessage(
+                        return ChatMessage(
                             role="assistant",
                             content="",
                             tool_calls=[
-                                ChatCompletionOutputToolCall(
+                                ChatMessageToolCall(
                                     id="call_0",
                                     type="function",
-                                    function=ChatCompletionOutputFunctionDefinition(
+                                    function=ChatMessageToolCallDefinition(
                                         name="final_answer", arguments="Final report."
                                     ),
                                 )
@@ -482,7 +485,7 @@ class AgentTests(unittest.TestCase):
                         )
                 else:
                     if len(messages) < 3:
-                        return ChatCompletionOutputMessage(
+                        return ChatMessage(
                             role="assistant",
                             content="""
 Thought: Let's call our search agent.
@@ -494,7 +497,7 @@ result = search_agent("Who is the current US president?")
                         )
                     else:
                         assert "Report on the current US president" in str(messages)
-                        return ChatCompletionOutputMessage(
+                        return ChatMessage(
                             role="assistant",
                             content="""
 Thought: Let's return the report.
@@ -515,14 +518,14 @@ final_answer("Final report.")
                 stop_sequences=None,
                 grammar=None,
             ):
-                return ChatCompletionOutputMessage(
+                return ChatMessage(
                     role="assistant",
                     content="",
                     tool_calls=[
-                        ChatCompletionOutputToolCall(
+                        ChatMessageToolCall(
                             id="call_0",
                             type="function",
-                            function=ChatCompletionOutputFunctionDefinition(
+                            function=ChatMessageToolCallDefinition(
                                 name="final_answer",
                                 arguments="Report on the current US president",
                             ),
@@ -565,7 +568,7 @@ final_answer("Final report.")
 
     def test_code_nontrivial_final_answer_works(self):
         def fake_code_model_final_answer(messages, stop_sequences=None, grammar=None):
-            return ChatCompletionOutputMessage(
+            return ChatMessage(
                 role="assistant",
                 content="""Code:
 ```py
