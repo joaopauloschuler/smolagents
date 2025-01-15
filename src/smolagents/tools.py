@@ -221,6 +221,16 @@ class Tool:
     def __call__(self, *args, sanitize_inputs_outputs: bool = False, **kwargs):
         if not self.is_initialized:
             self.setup()
+
+        # Handle the arguments might be passed as a single dictionary
+        if len(args) == 1 and len(kwargs) == 0 and isinstance(args[0], dict):
+            potential_kwargs = args[0]
+
+            # If the dictionary keys match our input parameters, convert it to kwargs
+            if all(key in self.inputs for key in potential_kwargs):
+                args = ()
+                kwargs = potential_kwargs
+
         if sanitize_inputs_outputs:
             args, kwargs = handle_agent_input_types(*args, **kwargs)
         outputs = self.forward(*args, **kwargs)

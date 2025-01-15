@@ -31,6 +31,7 @@ from .local_python_executor import (
 )
 from .tools import TOOL_CONFIG_FILE, PipelineTool, Tool
 from .types import AgentAudio
+from .utils import truncate_content
 
 if is_torch_available():
     from transformers.models.whisper import (
@@ -112,18 +113,15 @@ class PythonInterpreterTool(Tool):
 
     def forward(self, code: str) -> str:
         state = {}
-        try:
-            output = str(
-                self.python_evaluator(
-                    code,
-                    state=state,
-                    static_tools=self.base_python_tools,
-                    authorized_imports=self.authorized_imports,
-                )[0]  # The second element is boolean is_final_answer
-            )
-            return f"Stdout:\n{state['print_outputs']}\nOutput: {output}"
-        except Exception as e:
-            return f"Error: {str(e)}"
+        output = str(
+            self.python_evaluator(
+                code,
+                state=state,
+                static_tools=self.base_python_tools,
+                authorized_imports=self.authorized_imports,
+            )[0]  # The second element is boolean is_final_answer
+        )
+        return f"Stdout:\n{state['print_outputs']}\nOutput: {output}"
 
 
 class FinalAnswerTool(Tool):
@@ -295,7 +293,7 @@ class VisitWebpageTool(Tool):
             # Remove multiple line breaks
             markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
 
-            return markdown_content
+            return truncate_content(markdown_content)
 
         except RequestException as e:
             return f"Error fetching the webpage: {str(e)}"

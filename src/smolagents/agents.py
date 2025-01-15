@@ -15,7 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import time
-import json
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -396,7 +395,7 @@ class MultiStepAgent:
             }
         ]
         try:
-            return self.model(self.input_messages)
+            return self.model(self.input_messages).content
         except Exception as e:
             return f"Error in generating final LLM output:\n{e}"
 
@@ -666,7 +665,9 @@ You have been provided with these additional arguments, that you can access usin
 Now begin!""",
             }
 
-            answer_facts = self.model([message_prompt_facts, message_prompt_task])
+            answer_facts = self.model(
+                [message_prompt_facts, message_prompt_task]
+            ).content
 
             message_system_prompt_plan = {
                 "role": MessageRole.SYSTEM,
@@ -688,7 +689,7 @@ Now begin!""",
             answer_plan = self.model(
                 [message_system_prompt_plan, message_user_prompt_plan],
                 stop_sequences=["<end_plan>"],
-            )
+            ).content
 
             final_plan_redaction = f"""Here is the plan of action that I will follow to solve the task:
 ```
@@ -722,7 +723,7 @@ Now begin!""",
             }
             facts_update = self.model(
                 [facts_update_system_prompt] + agent_memory + [facts_update_message]
-            )
+            ).content
 
             # Redact updated plan
             plan_update_message = {
@@ -746,7 +747,7 @@ Now begin!""",
             plan_update = self.model(
                 [plan_update_message] + agent_memory + [plan_update_message_user],
                 stop_sequences=["<end_plan>"],
-            )
+            ).content
 
             # Log final facts and plan
             final_plan_redaction = PLAN_UPDATE_FINAL_PLAN_REDACTION.format(
@@ -807,17 +808,9 @@ class ToolCallingAgent(MultiStepAgent):
                 tools_to_call_from=list(self.tools.values()),
                 stop_sequences=["Observation:"],
             )
-            
-            # Extract tool call from model output
-            if type(model_message.tool_calls) is list and len(model_message.tool_calls) > 0:
-                tool_calls = model_message.tool_calls[0]
-                tool_arguments = tool_calls.function.arguments
-                tool_name, tool_call_id = tool_calls.function.name, tool_calls.id
-            else:
-                start, end = model_message.content.find('{'), model_message.content.rfind('}') + 1
-                tool_calls = json.loads(model_message.content[start:end])
-                tool_arguments = tool_calls["tool_arguments"]
-                tool_name, tool_call_id = tool_calls["tool_name"], f"call_{len(self.logs)}"
+            tool_call = model_message.tool_calls[0]
+            tool_name, tool_call_id = tool_call.function.name, tool_call.id
+            tool_arguments = tool_call.function.arguments
 
         except Exception as e:
             raise AgentGenerationError(
@@ -876,7 +869,10 @@ class ToolCallingAgent(MultiStepAgent):
                 updated_information = f"Stored '{observation_name}' in memory."
             else:
                 updated_information = str(observation).strip()
-            self.logger.log(f"Observations: {updated_information}", level=LogLevel.INFO)
+            self.logger.log(
+                f"Observations: {updated_information.replace('[', '|')}",  # escape potential rich-tag-like components
+                level=LogLevel.INFO,
+            )
             log_entry.observations = updated_information
             return None
 

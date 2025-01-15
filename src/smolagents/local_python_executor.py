@@ -687,6 +687,9 @@ def evaluate_subscript(
     if isinstance(value, pd.core.indexing._LocIndexer):
         parent_object = value.obj
         return parent_object.loc[index]
+    if isinstance(value, pd.core.indexing._iLocIndexer):
+        parent_object = value.obj
+        return parent_object.iloc[index]
     if isinstance(value, (pd.DataFrame, pd.Series, np.ndarray)):
         return value[index]
     elif isinstance(value, pd.core.groupby.generic.DataFrameGroupBy):
@@ -1336,6 +1339,8 @@ def evaluate_ast(
             if expression.value
             else None
         )
+    elif isinstance(expression, ast.Pass):
+        return None
     else:
         # For now we refuse anything else. Let's add things as we need them.
         raise InterpreterError(f"{expression.__class__.__name__} is not supported.")
