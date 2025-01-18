@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 import json
 import logging
 import os
@@ -32,9 +32,6 @@ from transformers import (
     StoppingCriteriaList,
     is_torch_available,
 )
-from transformers.utils.import_utils import _is_package_available
-
-import openai
 
 from .tools import Tool
 
@@ -50,8 +47,14 @@ DEFAULT_CODEAGENT_REGEX_GRAMMAR = {
     "value": "Thought: .+?\\nCode:\\n```(?:py|python)?\\n(?:.|\\s)+?\\n```<end_code>",
 }
 
-if _is_package_available("litellm"):
-    import litellm
+
+def get_dict_from_nested_dataclasses(obj):
+    def convert(obj):
+        if hasattr(obj, "__dataclass_fields__"):
+            return {k: convert(v) for k, v in asdict(obj).items()}
+        return obj
+
+    return convert(obj)
 
 
 @dataclass
@@ -60,6 +63,14 @@ class ChatMessageToolCallDefinition:
     name: str
     description: Optional[str] = None
 
+    @classmethod
+    def from_hf_api(cls, tool_call_definition) -> "ChatMessageToolCallDefinition":
+        return cls(
+            arguments=tool_call_definition.arguments,
+            name=tool_call_definition.name,
+            description=tool_call_definition.description,
+        )
+
 
 @dataclass
 class ChatMessageToolCall:
@@ -67,12 +78,33 @@ class ChatMessageToolCall:
     id: str
     type: str
 
+    @classmethod
+    def from_hf_api(cls, tool_call) -> "ChatMessageToolCall":
+        return cls(
+            function=ChatMessageToolCallDefinition.from_hf_api(tool_call.function),
+            id=tool_call.id,
+            type=tool_call.type,
+        )
+
 
 @dataclass
 class ChatMessage:
     role: str
     content: Optional[str] = None
     tool_calls: Optional[List[ChatMessageToolCall]] = None
+
+    def model_dump_json(self):
+        return json.dumps(get_dict_from_nested_dataclasses(self))
+
+    @classmethod
+    def from_hf_api(cls, message) -> "ChatMessage":
+        tool_calls = None
+        if getattr(message, "tool_calls", None) is not None:
+            tool_calls = [
+                ChatMessageToolCall.from_hf_api(tool_call)
+                for tool_call in message.tool_calls
+            ]
+        return cls(role=message.role, content=message.content, tool_calls=tool_calls)
 
 
 class MessageRole(str, Enum):
@@ -184,7 +216,6 @@ class Model:
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
     ) -> ChatMessage:
         """Process the input messages and return the model's response.
 
@@ -195,8 +226,6 @@ class Model:
                 A list of strings that will stop the generation if encountered in the model's output.
             grammar (`str`, *optional*):
                 The grammar or formatting structure to use in the model's response.
-            max_tokens (`int`, *optional*):
-                The maximum count of tokens to generate.
         Returns:
             `str`: The text content of the model's response.
         """
@@ -206,7 +235,7 @@ class Model:
 class HfApiModel(Model):
     """A class to interact with Hugging Face's Inference API for language model interaction.
 
-    This engine allows you to communicate with Hugging Face's models using the Inference API. It can be used in both serverless mode or with a dedicated endpoint, supporting features like stop sequences and grammar customization.
+    This model allows you to communicate with Hugging Face's models using the Inference API. It can be used in both serverless mode or with a dedicated endpoint, supporting features like stop sequences and grammar customization.
 
     Parameters:
         model_id (`str`, *optional*, defaults to `"Qwen/Qwen2.5-Coder-32B-Instruct"`):
@@ -227,9 +256,10 @@ class HfApiModel(Model):
     >>> engine = HfApiModel(
     ...     model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
     ...     token="your_hf_token_here",
+    ...     max_tokens=5000,
     ... )
     >>> messages = [{"role": "user", "content": "Explain quantum mechanics in simple terms."}]
-    >>> response = engine(messages, stop_sequences=["END"], max_tokens=1500)
+    >>> response = engine(messages, stop_sequences=["END"])
     >>> print(response)
     "Quantum mechanics is the branch of physics that studies..."
     ```
@@ -241,6 +271,7 @@ class HfApiModel(Model):
         token: Optional[str] = None,
         timeout: Optional[int] = 120,
         temperature: float = 0.5,
+        **kwargs,
     ):
         super().__init__()
         self.model_id = model_id
@@ -248,13 +279,13 @@ class HfApiModel(Model):
             token = os.getenv("HF_TOKEN")
         self.client = InferenceClient(self.model_id, token=token, timeout=timeout)
         self.temperature = temperature
+        self.kwargs = kwargs
 
     def __call__(
         self,
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> ChatMessage:
         """
@@ -270,33 +301,64 @@ class HfApiModel(Model):
                 tools=[get_json_schema(tool) for tool in tools_to_call_from],
                 tool_choice="auto",
                 stop=stop_sequences,
-                max_tokens=max_tokens,
                 temperature=self.temperature,
+                **self.kwargs,
             )
         else:
             response = self.client.chat.completions.create(
                 model=self.model_id,
                 messages=messages,
                 stop=stop_sequences,
-                max_tokens=max_tokens,
                 temperature=self.temperature,
+                **self.kwargs,
             )
         self.last_input_token_count = response.usage.prompt_tokens
         self.last_output_token_count = response.usage.completion_tokens
-        return response.choices[0].message
+        return ChatMessage.from_hf_api(response.choices[0].message)
 
 
 class TransformersModel(Model):
-    """This engine initializes a model and tokenizer from the given `model_id`.
+    """A class to interact with Hugging Face's Inference API for language model interaction.
+
+    This model allows you to communicate with Hugging Face's models using the Inference API. It can be used in both serverless mode or with a dedicated endpoint, supporting features like stop sequences and grammar customization.
 
     Parameters:
-        model_id (`str`, *optional*, defaults to `"HuggingFaceTB/SmolLM2-1.7B-Instruct"`):
+        model_id (`str`, *optional*, defaults to `"Qwen/Qwen2.5-Coder-32B-Instruct"`):
             The Hugging Face model ID to be used for inference. This can be a path or model identifier from the Hugging Face model hub.
-        device (`str`, optional, defaults to `"cuda"` if available, else `"cpu"`.):
-            The device to load the model on (`"cpu"` or `"cuda"`).
+        device_map (`str`, *optional*):
+            The device_map to initialize your model with.
+        torch_dtype (`str`, *optional*):
+            The torch_dtype to initialize your model with.
+        trust_remote_code (bool):
+            Some models on the Hub require running remote code: for this model, you would have to set this flag to True.
+        kwargs (dict, *optional*):
+            Any additional keyword arguments that you want to use in model.generate(), for instance `max_new_tokens` or `device`.
+    Raises:
+        ValueError:
+            If the model name is not provided.
+
+    Example:
+    ```python
+    >>> engine = TransformersModel(
+    ...     model_id="Qwen/Qwen2.5-Coder-32B-Instruct",
+    ...     device="cuda",
+    ...     max_new_tokens=5000,
+    ... )
+    >>> messages = [{"role": "user", "content": "Explain quantum mechanics in simple terms."}]
+    >>> response = engine(messages, stop_sequences=["END"])
+    >>> print(response)
+    "Quantum mechanics is the branch of physics that studies..."
+    ```
     """
 
-    def __init__(self, model_id: Optional[str] = None, device: Optional[str] = None):
+    def __init__(
+        self,
+        model_id: Optional[str] = None,
+        device_map: Optional[str] = None,
+        torch_dtype: Optional[str] = None,
+        trust_remote_code: bool = False,
+        **kwargs,
+    ):
         super().__init__()
         if not is_torch_available():
             raise ImportError("Please install torch in order to use TransformersModel.")
@@ -309,20 +371,27 @@ class TransformersModel(Model):
                 f"`model_id`not provided, using this default tokenizer for token counts: '{model_id}'"
             )
         self.model_id = model_id
-        if device is None:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.device = device
-        logger.info(f"Using device: {self.device}")
+        self.kwargs = kwargs
+        if device_map is None:
+            device_map = "cuda" if torch.cuda.is_available() else "cpu"
+        logger.info(f"Using device: {device_map}")
         try:
             self.tokenizer = AutoTokenizer.from_pretrained(model_id)
-            self.model = AutoModelForCausalLM.from_pretrained(model_id, device_map=self.device)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                device_map=device_map,
+                torch_dtype=torch_dtype,
+                trust_remote_code=trust_remote_code,
+            )
         except Exception as e:
             logger.warning(
                 f"Failed to load tokenizer and model for {model_id=}: {e}. Loading default tokenizer and model instead from {default_model_id=}."
             )
             self.model_id = default_model_id
             self.tokenizer = AutoTokenizer.from_pretrained(default_model_id)
-            self.model = AutoModelForCausalLM.from_pretrained(model_id, device_map=self.device)
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_id, device_map=device_map, torch_dtype=torch_dtype
+            )
 
     def make_stopping_criteria(self, stop_sequences: List[str]) -> StoppingCriteriaList:
         class StopOnStrings(StoppingCriteria):
@@ -355,7 +424,6 @@ class TransformersModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> ChatMessage:
         messages = get_clean_message_list(
@@ -380,10 +448,10 @@ class TransformersModel(Model):
 
         out = self.model.generate(
             **prompt_tensor,
-            max_new_tokens=max_tokens,
             stopping_criteria=(
                 self.make_stopping_criteria(stop_sequences) if stop_sequences else None
             ),
+            **self.kwargs,
         )
         generated_tokens = out[0, count_prompt_tokens:]
         output = self.tokenizer.decode(generated_tokens, skip_special_tokens=True)
@@ -416,6 +484,19 @@ class TransformersModel(Model):
 
 
 class LiteLLMModel(Model):
+    """This model connects to [LiteLLM](https://www.litellm.ai/) as a gateway to hundreds of LLMs.
+
+    Parameters:
+        model_id (`str`):
+            The model identifier to use on the server (e.g. "gpt-3.5-turbo").
+        api_base (`str`):
+            The base URL of the OpenAI-compatible API server.
+        api_key (`str`):
+            The API key to use for authentication.
+        **kwargs:
+            Additional keyword arguments to pass to the OpenAI API.
+    """
+
     def __init__(
         self,
         model_id="anthropic/claude-3-5-sonnet-20240620",
@@ -423,9 +504,11 @@ class LiteLLMModel(Model):
         api_key=None,
         **kwargs,
     ):
-        if not _is_package_available("litellm"):
-            raise ImportError(
-                "litellm not found. Install it with `pip install litellm`"
+        try:
+            import litellm
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Please install 'litellm' extra to use LiteLLMModel: `pip install 'smolagents[litellm]'`"
             )
         super().__init__()
         self.model_id = model_id
@@ -440,12 +523,13 @@ class LiteLLMModel(Model):
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> ChatMessage:
         messages = get_clean_message_list(
             messages, role_conversions=tool_role_conversions
         )
+        import litellm
+
         if tools_to_call_from:
             response = litellm.completion(
                 model=self.model_id,
@@ -453,7 +537,6 @@ class LiteLLMModel(Model):
                 tools=[get_json_schema(tool) for tool in tools_to_call_from],
                 tool_choice="required",
                 stop=stop_sequences,
-                max_tokens=max_tokens,
                 api_base=self.api_base,
                 api_key=self.api_key,
                 **self.kwargs,
@@ -463,7 +546,6 @@ class LiteLLMModel(Model):
                 model=self.model_id,
                 messages=messages,
                 stop=stop_sequences,
-                max_tokens=max_tokens,
                 api_base=self.api_base,
                 api_key=self.api_key,
                 **self.kwargs,
@@ -474,17 +556,18 @@ class LiteLLMModel(Model):
 
 
 class OpenAIServerModel(Model):
-    """This engine connects to an OpenAI-compatible API server.
+    """This model connects to an OpenAI-compatible API server.
 
     Parameters:
         model_id (`str`):
             The model identifier to use on the server (e.g. "gpt-3.5-turbo").
-        api_base (`str`):
+        api_base (`str`, *optional*):
             The base URL of the OpenAI-compatible API server.
-        api_key (`str`):
+        api_key (`str`, *optional*):
             The API key to use for authentication.
-        temperature (`float`, *optional*, defaults to 0.7):
-            Controls randomness in the model's responses. Values between 0 and 2.
+        custom_role_conversions (`Dict{str, str]`, *optional*):
+            Custom role conversion mapping to convert message roles in others.
+            Useful for specific models that do not support specific message roles like "system".
         **kwargs:
             Additional keyword arguments to pass to the OpenAI API.
     """
@@ -492,30 +575,40 @@ class OpenAIServerModel(Model):
     def __init__(
         self,
         model_id: str,
-        api_base: str,
-        api_key: str,
-        temperature: float = 0.7,
+        api_base: Optional[str] = None,
+        api_key: Optional[str] = None,
+        custom_role_conversions: Optional[Dict[str, str]] = None,
         **kwargs,
     ):
+        try:
+            import openai
+        except ModuleNotFoundError:
+            raise ModuleNotFoundError(
+                "Please install 'openai' extra to use OpenAIServerModel: `pip install 'smolagents[openai]'`"
+            ) from None
         super().__init__()
         self.model_id = model_id
         self.client = openai.OpenAI(
             base_url=api_base,
             api_key=api_key,
         )
-        self.temperature = temperature
         self.kwargs = kwargs
+        self.custom_role_conversions = custom_role_conversions
 
     def __call__(
         self,
         messages: List[Dict[str, str]],
         stop_sequences: Optional[List[str]] = None,
         grammar: Optional[str] = None,
-        max_tokens: int = 1500,
         tools_to_call_from: Optional[List[Tool]] = None,
     ) -> ChatMessage:
         messages = get_clean_message_list(
-            messages, role_conversions=tool_role_conversions
+            messages,
+            role_conversions=(
+                self.custom_role_conversions
+                if self.custom_role_conversions
+                else tool_role_conversions
+            ),
         )
         if tools_to_call_from:
             response = self.client.chat.completions.create(
@@ -524,8 +617,6 @@ class OpenAIServerModel(Model):
                 tools=[get_json_schema(tool) for tool in tools_to_call_from],
                 tool_choice="auto",
                 stop=stop_sequences,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
                 **self.kwargs,
             )
         else:
@@ -533,8 +624,6 @@ class OpenAIServerModel(Model):
                 model=self.model_id,
                 messages=messages,
                 stop=stop_sequences,
-                max_tokens=max_tokens,
-                temperature=self.temperature,
                 **self.kwargs,
             )
         self.last_input_token_count = response.usage.prompt_tokens
@@ -551,4 +640,5 @@ __all__ = [
     "HfApiModel",
     "LiteLLMModel",
     "OpenAIServerModel",
+    "ChatMessage",
 ]

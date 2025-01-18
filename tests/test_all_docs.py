@@ -85,7 +85,7 @@ class TestDocs:
     def setup_class(cls):
         cls._tmpdir = tempfile.mkdtemp()
         cls.launch_args = ["python3"]
-        cls.docs_dir = Path(__file__).parent.parent / "docs" / "source"
+        cls.docs_dir = Path(__file__).parent.parent / "docs" / "source" / "en"
         cls.extractor = DocCodeExtractor()
 
         if not cls.docs_dir.exists():
@@ -115,6 +115,7 @@ class TestDocs:
             "while llm_should_continue(memory):",  # This is pseudo code
             "ollama_chat/llama3.2",  # Exclude ollama building in guided tour
             "model = TransformersModel(model_id=model_id)",  # Exclude testing with transformers model
+            "SmolagentsInstrumentor",  # Exclude telemetry since it needs additional installs
         ]
         code_blocks = [
             block

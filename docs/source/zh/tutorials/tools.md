@@ -186,7 +186,7 @@ from smolagents import HfApiModel
 model = HfApiModel("Qwen/Qwen2.5-Coder-32B-Instruct")
 
 agent = CodeAgent(tools=[], model=model, add_base_tools=True)
-agent.tools.append(model_download_tool)
+agent.tools[model_download_tool.name] = model_download_tool
 ```
 现在我们可以利用新工具：
 
@@ -209,7 +209,7 @@ agent.run(
 ```py
 from smolagents import ToolCollection, CodeAgent
 
-image_tool_collection = ToolCollection(
+image_tool_collection = ToolCollection.from_hub(
     collection_slug="huggingface-tools/diffusion-tools-6630bb19a942c2306a2cdb6f",
     token="<YOUR_HUGGINGFACEHUB_API_TOKEN>"
 )

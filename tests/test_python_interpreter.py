@@ -60,6 +60,14 @@ class PythonInterpreterTester(unittest.TestCase):
             in str(e)
         )
 
+    def test_subscript_call(self):
+        code = """def foo(x,y):return x*y\n\ndef boo(y):\n\treturn y**3\nfun = [foo, boo]\nresult_foo = fun[0](4,2)\nresult_boo = fun[1](4)"""
+        state = {}
+        result, _ = evaluate_python_code(code, BASE_PYTHON_TOOLS, state=state)
+        assert result == 64
+        assert state["result_foo"] == 8
+        assert state["result_boo"] == 64
+
     def test_evaluate_call(self):
         code = "y = add_two(x)"
         state = {"x": 3}
@@ -912,3 +920,19 @@ shift_intervals
     Expected: {expected}
     Got:      {result}
     """
+
+    def test_dangerous_subpackage_access_blocked(self):
+        # Direct imports with dangerous patterns should fail
+        code = "import random._os"
+        with pytest.raises(InterpreterError):
+            evaluate_python_code(code)
+
+        # Import of whitelisted modules should succeed but dangerous submodules should not exist
+        code = "import random;random._os.system('echo bad command passed')"
+        with pytest.raises(AttributeError) as e:
+            evaluate_python_code(code)
+        assert "module 'random' has no attribute '_os'" in str(e)
+
+        code = "import doctest;doctest.inspect.os.system('echo bad command passed')"
+        with pytest.raises(AttributeError):
+            evaluate_python_code(code, authorized_imports=["doctest"])

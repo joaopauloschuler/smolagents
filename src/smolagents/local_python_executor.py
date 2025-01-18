@@ -21,6 +21,7 @@ import math
 import re
 from collections.abc import Mapping
 from importlib import import_module
+from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -45,7 +46,7 @@ ERRORS = {
     and issubclass(getattr(builtins, name), BaseException)
 }
 
-PRINT_OUTPUTS, MAX_LEN_OUTPUT = "", 50000
+PRINT_OUTPUTS, DEFAULT_MAX_LEN_OUTPUT = "", 50000
 OPERATIONS_COUNT, MAX_OPERATIONS = 0, 10000000
 
 
@@ -591,7 +592,11 @@ def evaluate_call(
     custom_tools: Dict[str, Callable],
     authorized_imports: List[str],
 ) -> Any:
-    if not (isinstance(call.func, ast.Attribute) or isinstance(call.func, ast.Name)):
+    if not (
+        isinstance(call.func, ast.Attribute)
+        or isinstance(call.func, ast.Name)
+        or isinstance(call.func, ast.Subscript)
+    ):
         raise InterpreterError(f"This is not a correct function: {call.func}).")
     if isinstance(call.func, ast.Attribute):
         obj = evaluate_ast(
@@ -617,6 +622,23 @@ def evaluate_call(
                 f"It is not permitted to evaluate other functions than the provided tools or functions defined in previous code (tried to execute {call.func.id})."
             )
 
+    elif isinstance(call.func, ast.Subscript):
+        value = evaluate_ast(
+            call.func.value, state, static_tools, custom_tools, authorized_imports
+        )
+        index = evaluate_ast(
+            call.func.slice, state, static_tools, custom_tools, authorized_imports
+        )
+        if isinstance(value, (list, tuple)):
+            func = value[index]
+        else:
+            raise InterpreterError(
+                f"Cannot subscript object of type {type(value).__name__}"
+            )
+
+        if not callable(func):
+            raise InterpreterError(f"This is not a correct function: {call.func}).")
+        func_name = None
     args = []
     for arg in call.args:
         if isinstance(arg, ast.Starred):
@@ -726,6 +748,8 @@ def evaluate_name(
         return state[name.id]
     elif name.id in static_tools:
         return static_tools[name.id]
+    elif name.id in custom_tools:
+        return custom_tools[name.id]
     elif name.id in ERRORS:
         return ERRORS[name.id]
     close_matches = difflib.get_close_matches(name.id, list(state.keys()))
@@ -1023,12 +1047,75 @@ def evaluate_with(
             context.__exit__(None, None, None)
 
 
+def get_safe_module(unsafe_module, dangerous_patterns, visited=None):
+    """Creates a safe copy of a module or returns the original if it's a function"""
+    # If it's a function or non-module object, return it directly
+    if not isinstance(unsafe_module, ModuleType):
+        return unsafe_module
+
+    # Handle circular references: Initialize visited set for the first call
+    if visited is None:
+        visited = set()
+
+    module_id = id(unsafe_module)
+    if module_id in visited:
+        return unsafe_module  # Return original for circular refs
+
+    visited.add(module_id)
+
+    # Create new module for actual modules
+    safe_module = ModuleType(unsafe_module.__name__)
+
+    # Copy all attributes by reference, recursively checking modules
+    for attr_name in dir(unsafe_module):
+        # Skip dangerous patterns at any level
+        if any(
+            pattern in f"{unsafe_module.__name__}.{attr_name}"
+            for pattern in dangerous_patterns
+        ):
+            continue
+
+        attr_value = getattr(unsafe_module, attr_name)
+
+        # Recursively process nested modules, passing visited set
+        if isinstance(attr_value, ModuleType):
+            attr_value = get_safe_module(
+                attr_value, dangerous_patterns, visited=visited
+            )
+
+        setattr(safe_module, attr_name, attr_value)
+
+    return safe_module
+
+
 def import_modules(expression, state, authorized_imports):
+    dangerous_patterns = (
+        "_os",
+        "os",
+        "subprocess",
+        "_subprocess",
+        "pty",
+        "system",
+        "popen",
+        "spawn",
+        "shutil",
+        "sys",
+        "pathlib",
+        "io",
+        "socket",
+        "compile",
+        "eval",
+        "exec",
+        "multiprocessing",
+    )
+
     def check_module_authorized(module_name):
         if "*" in authorized_imports:
             return True
         else:
             module_path = module_name.split(".")
+            if any([module in dangerous_patterns for module in module_path]):
+                return False
             module_subpaths = [
                 ".".join(module_path[:i]) for i in range(1, len(module_path) + 1)
             ]
@@ -1037,8 +1124,10 @@ def import_modules(expression, state, authorized_imports):
     if isinstance(expression, ast.Import):
         for alias in expression.names:
             if check_module_authorized(alias.name):
-                module = import_module(alias.name)
-                state[alias.asname or alias.name] = module
+                raw_module = import_module(alias.name)
+                state[alias.asname or alias.name] = get_safe_module(
+                    raw_module, dangerous_patterns
+                )
             else:
                 raise InterpreterError(
                     f"Import of {alias.name} is not allowed. Authorized imports are: {str(authorized_imports)}"
@@ -1046,11 +1135,13 @@ def import_modules(expression, state, authorized_imports):
         return None
     elif isinstance(expression, ast.ImportFrom):
         if check_module_authorized(expression.module):
-            module = __import__(
+            raw_module = __import__(
                 expression.module, fromlist=[alias.name for alias in expression.names]
             )
             for alias in expression.names:
-                state[alias.asname or alias.name] = getattr(module, alias.name)
+                state[alias.asname or alias.name] = get_safe_module(
+                    getattr(raw_module, alias.name), dangerous_patterns
+                )
         else:
             raise InterpreterError(f"Import from {expression.module} is not allowed.")
         return None
@@ -1344,15 +1435,6 @@ def evaluate_ast(
         raise InterpreterError(f"{expression.__class__.__name__} is not supported.")
 
 
-def truncate_print_outputs(
-    print_outputs: str, max_len_outputs: int = MAX_LEN_OUTPUT
-) -> str:
-    if len(print_outputs) < max_len_outputs:
-        return print_outputs
-    else:
-        return f"Print outputs:\n{print_outputs[:max_len_outputs]}\n_Print outputs have been truncated over the limit of {max_len_outputs} characters._\n"
-
-
 class FinalAnswerException(Exception):
     def __init__(self, value):
         self.value = value
@@ -1364,6 +1446,7 @@ def evaluate_python_code(
     custom_tools: Optional[Dict[str, Callable]] = None,
     state: Optional[Dict[str, Any]] = None,
     authorized_imports: List[str] = BASE_BUILTIN_MODULES,
+    max_print_outputs_length: int = DEFAULT_MAX_LEN_OUTPUT,
 ):
     """
     Evaluate a python expression using the content of the variables stored in a state and only evaluating a given set
@@ -1409,26 +1492,34 @@ def evaluate_python_code(
                 node, state, static_tools, custom_tools, authorized_imports
             )
         state["print_outputs"] = truncate_content(
-            PRINT_OUTPUTS, max_length=MAX_LEN_OUTPUT
+            PRINT_OUTPUTS, max_length=max_print_outputs_length
         )
         is_final_answer = False
         return result, is_final_answer
     except FinalAnswerException as e:
         state["print_outputs"] = truncate_content(
-            PRINT_OUTPUTS, max_length=MAX_LEN_OUTPUT
+            PRINT_OUTPUTS, max_length=max_print_outputs_length
         )
         is_final_answer = True
         return e.value, is_final_answer
     except InterpreterError as e:
-        msg = truncate_content(PRINT_OUTPUTS, max_length=MAX_LEN_OUTPUT)
+        msg = truncate_content(PRINT_OUTPUTS, max_length=max_print_outputs_length)
         msg += f"Code execution failed at line '{ast.get_source_segment(code, node)}' because of the following error:\n{e}"
         raise InterpreterError(msg)
 
 
 class LocalPythonInterpreter:
-    def __init__(self, additional_authorized_imports: List[str], tools: Dict):
+    def __init__(
+        self,
+        additional_authorized_imports: List[str],
+        tools: Dict,
+        max_print_outputs_length: Optional[int] = None,
+    ):
         self.custom_tools = {}
         self.state = {}
+        self.max_print_outputs_length = max_print_outputs_length
+        if max_print_outputs_length is None:
+            self.max_print_outputs_length = DEFAULT_MAX_LEN_OUTPUT
         self.additional_authorized_imports = additional_authorized_imports
         self.authorized_imports = list(
             set(BASE_BUILTIN_MODULES) | set(self.additional_authorized_imports)
@@ -1450,6 +1541,7 @@ class LocalPythonInterpreter:
             custom_tools=self.custom_tools,
             state=self.state,
             authorized_imports=self.authorized_imports,
+            max_print_outputs_length=self.max_print_outputs_length,
         )
         logs = self.state["print_outputs"]
         return output, logs, is_final_answer

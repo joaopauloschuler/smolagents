@@ -43,7 +43,7 @@ class E2BExecutor:
         # )
         # print("Installation of agents package finished.")
         self.logger = logger
-        additional_imports = additional_imports + ["pickle5"]
+        additional_imports = additional_imports + ["pickle5", "smolagents"]
         if len(additional_imports) > 0:
             execution = self.sbx.commands.run(
                 "pip install " + " ".join(additional_imports)

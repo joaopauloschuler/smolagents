@@ -15,6 +15,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import ast
+import importlib.util
 import inspect
 import json
 import re
@@ -22,16 +23,13 @@ import types
 from typing import Dict, Tuple, Union
 
 from rich.console import Console
-from transformers.utils.import_utils import _is_package_available
-
-_pygments_available = _is_package_available("pygments")
 
 
 def is_pygments_available():
-    return _pygments_available
+    return importlib.util.find_spec("soundfile") is not None
 
 
-console = Console(width=200)
+console = Console()
 
 BASE_BUILTIN_MODULES = [
     "collections",
@@ -171,9 +169,9 @@ def truncate_content(
         return content
     else:
         return (
-            content[: MAX_LENGTH_TRUNCATE_CONTENT // 2]
+            content[: max_length // 2]
             + f"\n..._This content has been truncated to stay below {max_length} characters_...\n"
-            + content[-MAX_LENGTH_TRUNCATE_CONTENT // 2 :]
+            + content[-max_length // 2 :]
         )
 
 
