@@ -907,13 +907,6 @@ class CodeAgent(MultiStepAgent):
             raise AgentError(
                 "Tag '{{authorized_imports}}' should be provided in the prompt."
             )
-
-        if "*" in self.additional_authorized_imports:
-            self.logger.log(
-                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
-                0,
-            )
-
         super().__init__(
             tools=tools,
             model=model,
@@ -922,6 +915,12 @@ class CodeAgent(MultiStepAgent):
             planning_interval=planning_interval,
             **kwargs,
         )
+        if "*" in self.additional_authorized_imports:
+            self.logger.log(
+                "Caution: you set an authorization for all imports, meaning your agent can decide to import any package it deems necessary. This might raise issues if the package is not installed in your environment.",
+                0,
+            )
+
         if use_e2b_executor and len(self.managed_agents) > 0:
             raise Exception(
                 f"You passed both {use_e2b_executor=} and some managed agents. Managed agents is not yet supported with remote code execution."
