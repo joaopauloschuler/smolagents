@@ -13,7 +13,7 @@
   - local: tutorials/tools
     title: 🛠️ Tools - in-depth guide
   - local: tutorials/secure_code_execution
-    title: 🛡️ Secure your code execution with E2B
+    title: 🛡️ Secure code execution
   - local: tutorials/memory
     title: 📚 Manage your agent's memory
 - title: Conceptual guides
@@ -27,7 +27,7 @@
   - local: examples/text_to_sql
     title: Self-correcting Text-to-SQL
   - local: examples/rag
-    title: Master you knowledge base with agentic RAG
+    title: Master your knowledge base with agentic RAG
   - local: examples/multiagents
     title: Orchestrate a multi-agent system
   - local: examples/web_browser
