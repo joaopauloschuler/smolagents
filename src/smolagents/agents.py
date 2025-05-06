@@ -625,6 +625,36 @@ You have been provided with these additional arguments, that you can access usin
                 answer += "\n" + truncate_content(str(content)) + "\n---"
             answer += "\n</summary_of_work>"
         return answer
+    
+    def parse_files_to_save(self, txt):
+        """
+        Args:
+            txt (str): Text containing <savetofile> tags
+            
+        Returns:
+            list: List of dictionaries with 'filename' and 'content' keys
+        """
+        pattern = r'<savetofile\s+filename="([^"]+)">(.*?)</savetofile>'
+        matches = re.findall(pattern, str(txt), re.DOTALL)
+
+        results = []
+        for filename, content in matches:
+            results.append({
+                'filename': filename,
+                'content': content.strip()  # Trim whitespace
+            })
+
+        return results
+    
+    def save_files_from_text(self, txt):
+        result = False
+        files = self.parse_files_to_save(txt)
+        for file in files:
+              with open(file['filename'], 'w') as f:
+                f.write(file['content'])
+                self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
+                result = True
+        return result
 
     def save(self, output_dir: str | Path, relative_path: str | None = None):
         """
@@ -1039,6 +1069,8 @@ class ToolCallingAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
 
+        self.save_files_from_text(model_output)
+
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
             try:
                 chat_message = self.model.parse_tool_calls(chat_message)
@@ -1325,11 +1357,16 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
+        has_files = self.save_files_from_text(model_output)
+
         ### Parse output ###
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\nMake sure to provide correct code blobs."
+            error_msg = f"Error in code parsing:\n{e}\n" + """ This is an example showing how you can run code:
+```py
+print('YAY! I can run code!')
+```<end_code>"""
             raise AgentParsingError(error_msg, self.logger)
 
         memory_step.tool_calls = [
