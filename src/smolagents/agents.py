@@ -626,15 +626,15 @@ You have been provided with these additional arguments, that you can access usin
             answer += "\n</summary_of_work>"
         return answer
     
-    def parse_files_to_save(self, txt):
+    def parse_tags(self, tag, txt):
         """
         Args:
-            txt (str): Text containing <savetofile> tags
+            txt (str): Text containing <tag> tags
             
         Returns:
             list: List of dictionaries with 'filename' and 'content' keys
         """
-        pattern = r'<savetofile\s+filename="([^"]+)">(.*?)</savetofile>'
+        pattern = r'<'+tag+r'\s+filename="([^"]+)">(.*?)</'+tag+r'>'
         matches = re.findall(pattern, str(txt), re.DOTALL)
 
         results = []
@@ -645,15 +645,25 @@ You have been provided with these additional arguments, that you can access usin
             })
 
         return results
-    
+        
     def save_files_from_text(self, txt):
-        result = False
-        files = self.parse_files_to_save(txt)
+        result = 0
+        files = self.parse_tags('savetofile', txt)
         for file in files:
               with open(file['filename'], 'w') as f:
                 f.write(file['content'])
                 self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
-                result = True
+                result = result + 1
+        return result
+
+    def append_files_from_text(self, txt):
+        result = 0
+        files = self.parse_tags('appendtofile', txt)
+        for file in files:
+              with open(file['filename'], 'a') as f:
+                f.write(file['content'])
+                self.logger.log("Appended file "+file['filename']+".", LogLevel.INFO)
+                result = result + 1
         return result
 
     def save(self, output_dir: str | Path, relative_path: str | None = None):
@@ -1070,6 +1080,7 @@ class ToolCallingAgent(MultiStepAgent):
             raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
 
         self.save_files_from_text(model_output)
+        self.append_files_from_text(model_output)
 
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
             try:
@@ -1357,7 +1368,8 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
-        has_files = self.save_files_from_text(model_output)
+        self.save_files_from_text(model_output)
+        self.append_files_from_text(model_output)
 
         ### Parse output ###
         try:
