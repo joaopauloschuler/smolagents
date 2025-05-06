@@ -641,7 +641,7 @@ You have been provided with these additional arguments, that you can access usin
         for filename, content in matches:
             results.append({
                 'filename': filename,
-                'content': content.strip()  # Trim whitespace
+                'content': content  # Trim whitespace
             })
 
         return results
