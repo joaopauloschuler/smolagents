@@ -671,6 +671,31 @@ You have been provided with these additional arguments, that you can access usin
         for file in files:
             txt = txt.replace(f'<append>{file["filename"]}</append>', file["content"])
         return txt
+    
+    def replace_include_files(self, txt):
+        """
+        Args:
+            text (str): Text containing <includefile> tags
+            
+        Returns:
+            str: Text with tags replaced by file contents
+        """
+        def replace_with_file_content(match):
+            filename = match.group(1).strip()
+            try:
+                with open(filename, 'r', encoding='utf-8') as file:
+                    txt = file.read()
+                    self.logger.log("Included file "+filename+".", LogLevel.INFO)
+                    return txt
+            except FileNotFoundError:
+                return f"[ERROR: File not found: {filename}]"
+            except PermissionError:
+                return f"[ERROR: Permission denied: {filename}]"
+            except Exception as e:
+                return f"[ERROR: Could not read file {filename}: {str(e)}]"
+        pattern = r'<includefile>(.*?)</includefile>'
+        result = re.sub(pattern, replace_with_file_content, txt, flags=re.DOTALL)
+        return result
 
     def save(self, output_dir: str | Path, relative_path: str | None = None):
         """
@@ -1389,6 +1414,7 @@ print('YAY! I can run code!')
         
         code_action = self.replace_include_tags(code_action, saved_files)
         code_action = self.replace_append_tags(code_action, appended_files)
+        code_action = self.replace_include_files(code_action)
 
         memory_step.tool_calls = [
             ToolCall(
