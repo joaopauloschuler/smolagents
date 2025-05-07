@@ -1387,8 +1387,8 @@ print('YAY! I can run code!')
 ```<end_code>"""
             raise AgentParsingError(error_msg, self.logger)
         
-        code_action = self.replace_include_tags(saved_files)
-        code_action = self.replace_append_tags(appended_files)
+        code_action = self.replace_include_tags(code_action, saved_files)
+        code_action = self.replace_append_tags(code_action, appended_files)
 
         memory_step.tool_calls = [
             ToolCall(
