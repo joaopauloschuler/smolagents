@@ -647,24 +647,30 @@ You have been provided with these additional arguments, that you can access usin
         return results
         
     def save_files_from_text(self, txt):
-        result = 0
         files = self.parse_tags('savetofile', txt)
         for file in files:
               with open(file['filename'], 'w') as f:
                 f.write(file['content'])
                 self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
-                result = result + 1
-        return result
+        return files
 
     def append_files_from_text(self, txt):
-        result = 0
         files = self.parse_tags('appendtofile', txt)
         for file in files:
               with open(file['filename'], 'a') as f:
                 f.write(file['content'])
                 self.logger.log("Appended file "+file['filename']+".", LogLevel.INFO)
-                result = result + 1
-        return result
+        return files
+                
+    def replace_include_tags(self, txt, files):
+        for file in files:
+            txt = txt.replace(f'<include>{file["filename"]}</include>', file["content"])
+        return txt
+
+    def replace_append_tags(self, txt, files):
+        for file in files:
+            txt = txt.replace(f'<append>{file["filename"]}</append>', file["content"])
+        return txt
 
     def save(self, output_dir: str | Path, relative_path: str | None = None):
         """
@@ -1368,8 +1374,8 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
-        self.save_files_from_text(model_output)
-        self.append_files_from_text(model_output)
+        saved_files = self.save_files_from_text(model_output)
+        appended_files = self.append_files_from_text(model_output)
 
         ### Parse output ###
         try:
@@ -1380,6 +1386,9 @@ class CodeAgent(MultiStepAgent):
 print('YAY! I can run code!')
 ```<end_code>"""
             raise AgentParsingError(error_msg, self.logger)
+        
+        code_action = self.replace_include_tags(saved_files)
+        code_action = self.replace_append_tags(appended_files)
 
         memory_step.tool_calls = [
             ToolCall(
