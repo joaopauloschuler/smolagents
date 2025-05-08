@@ -64,7 +64,7 @@ from .monitoring import (
     LogLevel,
     Monitor,
 )
-from .remote_executors import DockerExecutor, E2BExecutor
+from .remote_executors import DockerExecutor, E2BExecutor, LocalExecExecutor
 from .tools import Tool
 from .utils import (
     AgentError,
@@ -1316,13 +1316,15 @@ class CodeAgent(MultiStepAgent):
 
     def create_python_executor(self) -> PythonExecutor:
         match self.executor_type:
-            case "e2b" | "docker":
+            case "e2b" | "docker" | "exec":
                 if self.managed_agents:
                     raise Exception("Managed agents are not yet supported with remote code execution.")
                 if self.executor_type == "e2b":
                     return E2BExecutor(self.additional_authorized_imports, self.logger, **self.executor_kwargs)
-                else:
+                elif self.executor_type == "e2b":
                     return DockerExecutor(self.additional_authorized_imports, self.logger, **self.executor_kwargs)
+                elif self.executor_type == "exec":
+                    return LocalExecExecutor(self.additional_authorized_imports, self.logger, **self.executor_kwargs)
             case "local":
                 return LocalPythonExecutor(
                     self.additional_authorized_imports,
@@ -1361,7 +1363,7 @@ class CodeAgent(MultiStepAgent):
             if self.stream_outputs:
                 output_stream = self.model.generate_stream(
                     input_messages,
-                    stop_sequences=["<end_code>", "Observation:", "Calling tools:"],
+                    stop_sequences=["<end_code>"],
                     **additional_args,
                 )
                 output_text = ""
@@ -1378,7 +1380,7 @@ class CodeAgent(MultiStepAgent):
             else:
                 chat_message: ChatMessage = self.model(
                     input_messages,
-                    stop_sequences=["<end_code>", "Observation:", "Calling tools:"],
+                    stop_sequences=["<end_code>"],
                     **additional_args,
                 )
                 memory_step.model_output_message = chat_message
@@ -1406,16 +1408,47 @@ class CodeAgent(MultiStepAgent):
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
-            error_msg = f"Error in code parsing:\n{e}\n" + """ This is an example showing how you can run code:
+            error_msg = """Error in code parsing. Follow examples with the desired structure in the tags <example></example>:
+<example>
+Thought: I will use python code to compute the result of the operation and then return the final answer using the `final_answer` tool.
+Free will: I am going to solve this task with confidence.
+Tags:
+<savetofile filename="free-will.txt">
+I am going to solve this task with confidence.
+</savetofile>
+  Code:
 ```py
-print('YAY! I can run code!')
-```<end_code>"""
+result = 5 + 3 + 1294.678
+final_answer(result)
+```<end_code>
+</example>
+
+If you need to include any file in the file system, use the <includefile></includefile> tags. This is an example:
+<example>
+Tags:
+<savetofile filename="first_step.py">
+print("first step")
+</savetofile>
+
+<savetofile filename="second_step.py">
+print("second step")
+</savetofile>
+
+Code:
+```py
+<includefile>first_step.py</includefile>
+<includefile>second_step.py</includefile>
+```<end_code>
+</example>
+
+The above will run and print:
+first step
+second step
+
+REMEMBER: the Code section is mandatory. Make sure to test or verify any coding task before considering it completed.
+"""
             raise AgentParsingError(error_msg, self.logger)
         
-        code_action = self.replace_include_tags(code_action, saved_files)
-        code_action = self.replace_append_tags(code_action, appended_files)
-        code_action = self.replace_include_files(code_action)
-
         memory_step.tool_calls = [
             ToolCall(
                 name="python_interpreter",
@@ -1426,6 +1459,14 @@ print('YAY! I can run code!')
 
         ### Execute action ###
         self.logger.log_code(title="Executing parsed code:", content=code_action, level=LogLevel.INFO)
+        code_action = self.replace_include_tags(code_action, saved_files)
+        code_action = self.replace_append_tags(code_action, appended_files)
+        code_action = self.replace_include_files(code_action)
+        
+        # with open('tmp.py', "w") as text_file:
+        #     text_file.write(code_action)
+        # code_action = "exec(load_string_from_file('tmp.py'))"
+
         is_final_answer = False
         try:
             output, execution_logs, is_final_answer = self.python_executor(code_action)

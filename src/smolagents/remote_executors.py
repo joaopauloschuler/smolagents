@@ -23,6 +23,10 @@ from io import BytesIO
 from pathlib import Path
 from textwrap import dedent
 from typing import Any
+import subprocess
+import sys
+import io
+import contextlib
 
 import PIL.Image
 import requests
@@ -83,6 +87,7 @@ locals().update(vars_dict)
         """Check if code is a final answer and run it accordingly"""
         is_final_answer = bool(self.final_answer_pattern.search(code_action))
         output = self.run_code_raise_errors(code_action, return_final_answer=is_final_answer)
+        # print("Hello:",output[0], ':', output[1], ':', is_final_answer)
         return output[0], output[1], is_final_answer
 
     def install_packages(self, additional_imports: list[str]):
@@ -383,5 +388,269 @@ CMD ["jupyter", "kernelgateway", "--KernelGatewayApp.ip='0.0.0.0'", "--KernelGat
         """Ensure cleanup on deletion."""
         self.cleanup()
 
+class LocalExecExecutor(RemotePythonExecutor):
+    """
+    Executes Python code using the built-in exec() function.
+    
+    This executor runs code in the local Python environment without sandboxing,
+    capturing output and handling various return types.
+    
+    WARNING: This executor is NOT SECURE for untrusted code. It executes code directly
+    in the current Python process without any isolation. Use only with trusted code.
+    
+    Args:
+        additional_imports (`list[str]`): Additional packages to install.
+        logger (`Logger`): Logger to use.
+        capture_graphics (`bool`): Whether to capture matplotlib and other graphics output.
+        restricted_modules (`List[str]`, optional): List of modules to restrict from importing.
+        **kwargs: Additional configuration parameters.
+    """
 
+    def __init__(self, additional_imports: list[str], logger, capture_graphics: bool = True, 
+                 restricted_modules: list[str] = None, **kwargs):
+        super().__init__(additional_imports, logger)
+        self.installed_packages = self.install_packages(additional_imports)
+        self.globals_dict = {
+            '_output_data': None,
+            '_output_type': None,
+            '_last_value': None,
+            'display': self._display_func
+        }
+        self.capture_graphics = capture_graphics
+        self.restricted_modules = restricted_modules or []
+        
+        # Add security warning
+        # self.logger.log("LocalExecExecutor is running", level=LogLevel.INFO)
+        # self.logger.log("WARNING: This executor runs code without sandboxing and is NOT SECURE for untrusted code.", 
+        #                level=LogLevel.WARNING)
+        
+        # Install required packages for display functionality
+        # if capture_graphics and "matplotlib" not in additional_imports:
+        #     self.install_packages(["matplotlib"])
+            
+        # Set up a basic security restriction on imports if requested
+        # self._setup_security_restrictions()
+    def send_tools(self, tools: dict[str, Tool]):
+        tool_definition_code = ""
+    
+    def _setup_security_restrictions(self):
+        """
+        Set up basic security restrictions for executing code.
+        Not foolproof, but provides some basic protection.
+        """
+        original_import = __import__
+        
+        def restricted_import(name, *args, **kwargs):
+            # Check if the module is restricted
+            for restricted in self.restricted_modules:
+                if name == restricted or name.startswith(f"{restricted}."):
+                    raise ImportError(f"Import of '{name}' is restricted for security reasons")
+            return original_import(name, *args, **kwargs)
+        
+        # Add the restricted import to the globals dict
+        self.globals_dict['__builtins__'] = dict(__import__=restricted_import, **__builtins__.__dict__)
+        
+        # Add a note about the restrictions
+        modules_list = ", ".join(self.restricted_modules)
+        self.logger.log(f"Basic import restrictions applied for: {modules_list}", level=LogLevel.INFO)
+    
+    def install_packages(self, packages: list[str]) -> list[str]:
+        """Install Python packages using pip."""
+        installed = []
+        # for package in packages:
+        #    try:
+        #        self.logger.log(f"Installing package: {package}", level=LogLevel.INFO)
+        #        subprocess.check_call([sys.executable, "-m", "pip", "install", package], 
+        #                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        #        installed.append(package)
+        #        self.logger.log(f"Successfully installed {package}", level=LogLevel.INFO)
+        #    except subprocess.CalledProcessError as e:
+        #        error_msg = f"Failed to install package {package}: {e}"
+        #        self.logger.log(error_msg, level=LogLevel.ERROR)
+        # return installed
+    
+    def _display_func(self, obj, mime_type=None):
+        """
+        Function to handle display of various object types.
+        Similar to IPython's display function.
+        """
+        # Determine the MIME type if not specified
+        if mime_type is None:
+            if hasattr(obj, '_repr_png_'):
+                mime_type = 'image/png'
+                obj = obj._repr_png_()
+            elif hasattr(obj, '_repr_jpeg_'):
+                mime_type = 'image/jpeg'
+                obj = obj._repr_jpeg_()
+            elif hasattr(obj, '_repr_html_'):
+                mime_type = 'text/html'
+                obj = obj._repr_html_()
+            elif hasattr(obj, '_repr_markdown_'):
+                mime_type = 'text/markdown'
+                obj = obj._repr_markdown_()
+            elif hasattr(obj, '_repr_json_'):
+                mime_type = 'application/json'
+                obj = obj._repr_json_()
+            elif isinstance(obj, PIL.Image.Image):
+                mime_type = 'image/png'
+                buffer = BytesIO()
+                obj.save(buffer, format='PNG')
+                buffer.seek(0)
+                obj = base64.b64encode(buffer.read()).decode('utf-8')
+            else:
+                mime_type = 'text/plain'
+                obj = str(obj)
+        
+        # Store the output
+        self.globals_dict['_output_data'] = obj
+        self.globals_dict['_output_type'] = mime_type
+    
+    def _setup_matplotlib_hook(self):
+        """Set up hooks to capture matplotlib output."""
+        if not self.capture_graphics:
+            return
+        
+        # This code will be executed in the globals context
+        setup_code = """
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import io, base64
+
+    # Save the original show method
+    _original_show = plt.show
+
+    # Define a custom show method to capture figures
+    def _custom_show(*args, **kwargs):
+        global _output_data, _output_type
+        buf = io.BytesIO()
+        plt.savefig(buf, format='PNG')
+        buf.seek(0)
+        _output_data = base64.b64encode(buf.read()).decode('utf-8')
+        _output_type = 'image/png'
+        plt.close()
+        return None
+
+    # Replace plt.show with our custom version
+    plt.show = _custom_show
+except ImportError:
+    # Matplotlib is not available, skip setup
+    pass
+"""
+        try:
+            exec(setup_code, self.globals_dict)
+            # self.logger.log("Matplotlib hooks configured for graphics capture", level=LogLevel.INFO)
+        except Exception as e:
+            self.logger.log(f"Failed to configure matplotlib hooks: {e}", level=LogLevel.WARNING)
+    
+    def run_code_raise_errors(self, code: str, return_final_answer: bool = False) -> tuple[Any, str]:
+        """
+        Execute Python code and return the result and output logs.
+        
+        Args:
+            code (str): The Python code to execute
+            return_final_answer (bool): Whether to raise an error if no result is returned
+            
+        Returns:
+            tuple[Any, str]: A tuple containing (result, logs)
+        """
+        # Reset output data
+        self.globals_dict['_output_data'] = None
+        self.globals_dict['_output_type'] = None
+        self.globals_dict['_last_value'] = None
+        self.globals_dict['_final_answer'] = None
+        
+        # Set up matplotlib if needed
+        if self.capture_graphics:
+            self._setup_matplotlib_hook()
+        
+        # Create buffers for stdout and stderr
+        stdout_buffer = io.StringIO()
+        stderr_buffer = io.StringIO()
+        
+        result = None
+        locals_dict = None
+        
+        # Execute the code, capturing stdout and stderr
+        with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+            try:
+                # Add special handling for Jupyter-style last expression value
+                # Wrap the code to capture the last expression value
+                wrapped_code = f"""
+# Begin user code execution
+def final_answer(pfinal):
+    global _final_answer
+    _final_answer = pfinal
+{code}
+
+# Get the last expression value if it exists
+if '_' in locals():
+    _last_value = _
+# End user code execution
+"""
+                if (return_final_answer):
+                    wrapped_code += """
+_last_value = _final_answer
+_output_data = _final_answer
+"""    
+                # print(wrapped_code)
+                # Execute the code
+                exec(wrapped_code, self.globals_dict, locals_dict)
+                # print(locals_dict)
+                
+                comment = """
+                # Check for output from display() or matplotlib
+                if self.globals_dict['_output_data'] is not None:
+                    output_type = self.globals_dict['_output_type']
+                    output_data = self.globals_dict['_output_data']
+                    
+                    # Process based on output type
+                    if output_type == 'image/png' or output_type == 'image/jpeg':
+                        # Handle image display
+                        if isinstance(output_data, str) and output_data.startswith('data:'):
+                            # Handle data URLs
+                            import re
+                            output_data = re.sub(r'^data:image/[a-z]+;base64,', '', output_data)
+                        
+                        decoded_bytes = base64.b64decode(output_data)
+                        result = PIL.Image.open(BytesIO(decoded_bytes))
+                    elif output_type == 'text/html':
+                        result = {"html": output_data}
+                    elif output_type == 'text/markdown':
+                        result = {"markdown": output_data}
+                    elif output_type == 'application/json':
+                        result = {"json": output_data}
+                    elif output_type == 'text/latex':
+                        result = {"latex": output_data}
+                    else:
+                        # Default to text
+                        result = {"text": output_data}
+                
+                # If no special output, check for the last expression value
+                if result is None and self.globals_dict.get('_last_value') is not None:
+                    result = self.globals_dict['_last_value']
+"""                
+            except Exception as e:
+                # Get the traceback
+                import traceback
+                tb = traceback.format_exc()
+                error_msg = f"Error executing code: {str(e)}\n{tb}"
+                stderr_buffer.write(error_msg)
+                raise AgentError(error_msg, self.logger)
+        
+        # Collect logs
+        stdout_content = stdout_buffer.getvalue()
+        stderr_content = stderr_buffer.getvalue()
+        
+        logs = stdout_content
+        if stderr_content:
+            logs += "\nStderr:\n" + stderr_content
+        
+        # Check if result is required but not found
+        # if return_final_answer and result is None:
+        #    raise AgentError("No result was returned from the code execution", self.logger)
+        
+        return self.globals_dict['_last_value'], logs
+        
 __all__ = ["E2BExecutor", "DockerExecutor"]
