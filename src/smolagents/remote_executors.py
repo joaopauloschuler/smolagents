@@ -414,24 +414,22 @@ class LocalExecExecutor(RemotePythonExecutor):
             '_output_data': None,
             '_output_type': None,
             '_last_value': None,
+            '_final_answer': None,
             'display': self._display_func
         }
         self.capture_graphics = capture_graphics
         self.restricted_modules = restricted_modules or []
+        self.tools = {}
+
+    def __call__(self, code_action: str) -> tuple[Any, str, bool]:
+        """Check if code is a final answer and run it accordingly"""
+        does_not_care = False
+        output = self.run_code_raise_errors(code_action, return_final_answer=does_not_care)
+        is_final_answer = output[2]
+        return output[0], output[1], is_final_answer
         
-        # Add security warning
-        # self.logger.log("LocalExecExecutor is running", level=LogLevel.INFO)
-        # self.logger.log("WARNING: This executor runs code without sandboxing and is NOT SECURE for untrusted code.", 
-        #                level=LogLevel.WARNING)
-        
-        # Install required packages for display functionality
-        # if capture_graphics and "matplotlib" not in additional_imports:
-        #     self.install_packages(["matplotlib"])
-            
-        # Set up a basic security restriction on imports if requested
-        # self._setup_security_restrictions()
     def send_tools(self, tools: dict[str, Tool]):
-        tool_definition_code = ""
+        self.tools = tools
     
     def _setup_security_restrictions(self):
         """
@@ -457,17 +455,6 @@ class LocalExecExecutor(RemotePythonExecutor):
     def install_packages(self, packages: list[str]) -> list[str]:
         """Install Python packages using pip."""
         installed = []
-        # for package in packages:
-        #    try:
-        #        self.logger.log(f"Installing package: {package}", level=LogLevel.INFO)
-        #        subprocess.check_call([sys.executable, "-m", "pip", "install", package], 
-        #                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        #        installed.append(package)
-        #        self.logger.log(f"Successfully installed {package}", level=LogLevel.INFO)
-        #    except subprocess.CalledProcessError as e:
-        #        error_msg = f"Failed to install package {package}: {e}"
-        #        self.logger.log(error_msg, level=LogLevel.ERROR)
-        # return installed
     
     def _display_func(self, obj, mime_type=None):
         """
@@ -560,6 +547,8 @@ except ImportError:
         self.globals_dict['_output_type'] = None
         self.globals_dict['_last_value'] = None
         self.globals_dict['_final_answer'] = None
+        self.globals_dict.update(self.tools)
+        is_final_answer = False
         
         # Set up matplotlib if needed
         if self.capture_graphics:
@@ -569,68 +558,26 @@ except ImportError:
         stdout_buffer = io.StringIO()
         stderr_buffer = io.StringIO()
         
-        result = None
         locals_dict = None
+        wrapped_code = f"""
+_final_answer = None
+_last_value = None
+def final_answer(pfinal):
+    global _final_answer
+    _final_answer = pfinal
+{code}
+if '_' in locals():
+    _last_value = _
+"""
+        # print(wrapped_code)
         
         # Execute the code, capturing stdout and stderr
         with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
             try:
                 # Add special handling for Jupyter-style last expression value
                 # Wrap the code to capture the last expression value
-                wrapped_code = f"""
-# Begin user code execution
-def final_answer(pfinal):
-    global _final_answer
-    _final_answer = pfinal
-{code}
-
-# Get the last expression value if it exists
-if '_' in locals():
-    _last_value = _
-# End user code execution
-"""
-                if (return_final_answer):
-                    wrapped_code += """
-_last_value = _final_answer
-_output_data = _final_answer
-"""    
-                # print(wrapped_code)
                 # Execute the code
-                exec(wrapped_code, self.globals_dict, locals_dict)
-                # print(locals_dict)
-                
-                comment = """
-                # Check for output from display() or matplotlib
-                if self.globals_dict['_output_data'] is not None:
-                    output_type = self.globals_dict['_output_type']
-                    output_data = self.globals_dict['_output_data']
-                    
-                    # Process based on output type
-                    if output_type == 'image/png' or output_type == 'image/jpeg':
-                        # Handle image display
-                        if isinstance(output_data, str) and output_data.startswith('data:'):
-                            # Handle data URLs
-                            import re
-                            output_data = re.sub(r'^data:image/[a-z]+;base64,', '', output_data)
-                        
-                        decoded_bytes = base64.b64decode(output_data)
-                        result = PIL.Image.open(BytesIO(decoded_bytes))
-                    elif output_type == 'text/html':
-                        result = {"html": output_data}
-                    elif output_type == 'text/markdown':
-                        result = {"markdown": output_data}
-                    elif output_type == 'application/json':
-                        result = {"json": output_data}
-                    elif output_type == 'text/latex':
-                        result = {"latex": output_data}
-                    else:
-                        # Default to text
-                        result = {"text": output_data}
-                
-                # If no special output, check for the last expression value
-                if result is None and self.globals_dict.get('_last_value') is not None:
-                    result = self.globals_dict['_last_value']
-"""                
+                exec(wrapped_code, self.globals_dict, locals_dict)                
             except Exception as e:
                 # Get the traceback
                 import traceback
@@ -639,18 +586,24 @@ _output_data = _final_answer
                 stderr_buffer.write(error_msg)
                 raise AgentError(error_msg, self.logger)
         
+        # print('Global dict', self.globals_dict)
+        # print('Local dict', locals_dict)
+
+        is_final_answer = (self.globals_dict['_final_answer'] is not None)
         # Collect logs
         stdout_content = stdout_buffer.getvalue()
         stderr_content = stderr_buffer.getvalue()
         
         logs = stdout_content
+        logs += "\nLast value:\n" + str(self.globals_dict['_last_value'])
         if stderr_content:
             logs += "\nStderr:\n" + stderr_content
+        print('Logs', logs)
         
         # Check if result is required but not found
         # if return_final_answer and result is None:
         #    raise AgentError("No result was returned from the code execution", self.logger)
         
-        return self.globals_dict['_last_value'], logs
+        return self.globals_dict['_final_answer'], logs, is_final_answer
         
 __all__ = ["E2BExecutor", "DockerExecutor"]
