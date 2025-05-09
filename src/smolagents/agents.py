@@ -1385,11 +1385,11 @@ class CodeAgent(MultiStepAgent):
                 )
                 memory_step.model_output_message = chat_message
                 model_output = chat_message.content
-                self.logger.log_markdown(
-                    content=model_output,
-                    title="Output message of the LLM:",
-                    level=LogLevel.DEBUG,
-                )
+            self.logger.log_markdown(
+                content=model_output,
+                title="Output message of the LLM:",
+                level=LogLevel.INFO,
+            )
 
             # This adds <end_code> sequence to the history.
             # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
