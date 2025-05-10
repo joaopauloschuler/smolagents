@@ -83,6 +83,26 @@ from .utils import (
 
 logger = getLogger(__name__)
 
+def force_directories(file_path: str):
+    """
+    Extracts the directory path from a full file path and creates
+    the directory structure if it does not already exist.
+
+    Args:
+        file_path: The full path to a file (e.g., '/path/to/some/directory/file.txt').
+                   Can be a relative or absolute path.
+    """
+    # Use os.path.dirname() to get the directory part of the path.
+    # This works for both files and directories (if path ends with a slash).
+    directory_path = os.path.dirname(file_path)
+
+    # If the path ends with a directory separator or refers to the current
+    # directory or root, dirname might return an empty string or '.'.
+    # os.makedirs handles these cases correctly.
+    # os.makedirs() with exist_ok=True will create the directories recursively
+    # if they don't exist, and will do nothing if they already exist.
+    if directory_path: # Only attempt to create if directory_path is not empty
+      os.makedirs(directory_path, exist_ok=True)
 
 def get_variable_names(self, template: str) -> set[str]:
     pattern = re.compile(r"\{\{([^{}]+)\}\}")
@@ -649,6 +669,7 @@ You have been provided with these additional arguments, that you can access usin
     def save_files_from_text(self, txt):
         files = self.parse_tags('savetofile', txt)
         for file in files:
+              force_directories(file['filename'])
               with open(file['filename'], 'w') as f:
                 f.write(file['content'])
                 self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
