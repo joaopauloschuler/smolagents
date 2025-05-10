@@ -1393,7 +1393,7 @@ class CodeAgent(MultiStepAgent):
 
             # This adds <end_code> sequence to the history.
             # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
-            if model_output and model_output.strip().endswith("```"):
+            if model_output and str(model_output).strip().endswith("```"):
                 model_output += "<end_code>"
                 memory_step.model_output_message.content = model_output
 
