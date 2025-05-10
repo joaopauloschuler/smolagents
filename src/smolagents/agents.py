@@ -671,7 +671,7 @@ You have been provided with these additional arguments, that you can access usin
         for file in files:
               force_directories(file['filename'])
               with open(file['filename'], 'w') as f:
-                f.write(file['content'])
+                f.write(self.replace_include_files(file['content']))
                 self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
         return files
 
@@ -679,7 +679,7 @@ You have been provided with these additional arguments, that you can access usin
         files = self.parse_tags('appendtofile', txt)
         for file in files:
               with open(file['filename'], 'a') as f:
-                f.write(file['content'])
+                f.write(self.replace_include_files(file['content']))
                 self.logger.log("Appended file "+file['filename']+".", LogLevel.INFO)
         return files
                 
