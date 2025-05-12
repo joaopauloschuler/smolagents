@@ -665,27 +665,34 @@ You have been provided with these additional arguments, that you can access usin
             })
 
         return results
+
+    def remove_tags(self, tag, txt):
+        """
+        Args:
+            txt (str): Text containing <tag> tags
+            
+        Returns:
+            Text without the tag.
+        """
+        pattern = r'<'+tag+r'\s+filename="([^"]+)">(.*?)</'+tag+r'>'
+        return re.sub(pattern, "", txt)
         
     def save_files_from_text(self, txt):
         files = self.parse_tags('savetofile', txt)
-        new_txt = txt
         for file in files:
               force_directories(file['filename'])
               with open(file['filename'], 'w') as f:
                 f.write(self.replace_include_files(file['content']))
                 self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
-                new_txt.replace(file["content"], 'saved')
-        return files, new_txt
+        return files
 
     def append_files_from_text(self, txt):
         files = self.parse_tags('appendtofile', txt)
-        new_txt = txt
         for file in files:
               with open(file['filename'], 'a') as f:
                 f.write(self.replace_include_files(file['content']))
                 self.logger.log("Appended file "+file['filename']+".", LogLevel.INFO)
-                new_txt.replace(file["content"], 'appended')
-        return files, new_txt
+        return files
                 
     def replace_include_tags(self, txt, files):
         for file in files:
@@ -1135,8 +1142,10 @@ class ToolCallingAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error while generating output:\n{e}", self.logger) from e
 
-        saved_files, model_output = self.save_files_from_text(model_output)
-        appended_files, model_output = self.append_files_from_text(model_output)
+        self.save_files_from_text(model_output)
+        model_output = self.remove_tags('savetofile', model_output)
+        self.append_files_from_text(model_output)
+        model_output = self.remove_tags('appendtofile', model_output)
 
         if chat_message.tool_calls is None or len(chat_message.tool_calls) == 0:
             try:
@@ -1426,8 +1435,10 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
-        saved_files, model_output = self.save_files_from_text(model_output)
-        appended_files, model_output = self.append_files_from_text(model_output)
+        saved_files = self.save_files_from_text(model_output)
+        model_output = self.remove_tags('savetofile', model_output)
+        appended_files = self.append_files_from_text(model_output)
+        model_output = self.remove_tags('appendtofile', model_output)
 
         ### Parse output ###
         try:
