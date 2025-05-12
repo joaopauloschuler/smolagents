@@ -356,7 +356,7 @@ You have been provided with these additional arguments, that you can access usin
         self.logger.log_task(
             content=self.task.strip(),
             subtitle=f"{type(self.model).__name__} - {(self.model.model_id if hasattr(self.model, 'model_id') else '')}",
-            level=LogLevel.INFO,
+            level=LogLevel.DEBUG,
             title=self.name if hasattr(self, "name") else None,
         )
         self.memory.steps.append(TaskStep(task=self.task, task_images=images))
