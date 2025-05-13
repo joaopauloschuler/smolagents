@@ -1435,6 +1435,7 @@ class CodeAgent(MultiStepAgent):
         except Exception as e:
             raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
 
+        model_output = str(model_output)
         saved_files = self.save_files_from_text(model_output)
         model_output = self.remove_tags('savetofile', model_output)
         appended_files = self.append_files_from_text(model_output)
