@@ -1420,9 +1420,12 @@ class CodeAgent(MultiStepAgent):
                 )
                 memory_step.model_output_message = chat_message
                 model_output = chat_message.content
+
+            str_len = len(str(model_output))
+            str_len_str = str(str_len)
             self.logger.log_markdown(
                 content=model_output,
-                title="Output message of the LLM:",
+                title="Output of the LLM with "+str_len_str+" chars:",
                 level=LogLevel.INFO,
             )
 
@@ -1486,6 +1489,35 @@ second step
 
 REMEMBER: the Code section is mandatory. Make sure to test or verify any coding task before considering it completed.
 """
+            if (str_len>8000):
+              error_msg = """
+If you are trying to save or run a too big file, you can try to save and append in steps:
+<example>
+Tags:
+<savetofile filename="large_file.txt">
+First section, function or chapter
+</savetofile>
+```py
+print('Starting well.')
+```<end_code>
+Tags:
+<appendtofile filename="large_file.txt">
+Second section, function or chapter
+</savetofile>
+```py
+print('Continuing awesome!')
+```<end_code>
+Tags:
+<appendtofile filename="large_file.txt">
+Third section, function or chapter
+</savetofile>
+```py
+print('Finishing fantastic!!!')
+```<end_code>
+</example>
+
+You can combine the above to be able to run very large portions of python code if required.
+"""
             raise AgentParsingError(error_msg, self.logger)
         
         memory_step.tool_calls = [
@@ -1497,7 +1529,7 @@ REMEMBER: the Code section is mandatory. Make sure to test or verify any coding 
         ]
 
         ### Execute action ###
-        self.logger.log_code(title="Executing parsed code:", content=code_action, level=LogLevel.INFO)
+        self.logger.log_code(title="Executing code with "+str(len(code_action))+" chars:", content=code_action, level=LogLevel.INFO)
         code_action = self.replace_include_tags(code_action, saved_files)
         code_action = self.replace_append_tags(code_action, appended_files)
         code_action = self.replace_include_files(code_action)
