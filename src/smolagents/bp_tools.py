@@ -1,6 +1,6 @@
 # beyond python tools
 
-from .tools import tool, Tool
+from .tools import tool, Tool, VisitWebpageTool
 import os
 import subprocess
 import shlex
@@ -674,6 +674,7 @@ class SummarizeUrl(Tool):
         self.agent = agent
 
     def forward(self, url: str, restart_chat: bool = True) -> str:
+        LocalVistWebPageTool = VisitWebpageTool()
         task_str = 'Hello super-intelligence! Please write all the information in plain English text without tags from the following as a string (do not use python code except for the final answer): '+ LocalVistWebPageTool(url)[:15000]
         result = self.agent.run(task_str, reset=restart_chat)
         return result
@@ -860,6 +861,7 @@ class GetRelevantInfoFromUrl(Tool):
             self.agent = agent
 
         def forward(self, relevant_about_str:str, url: str, restart_chat: bool = True) -> str:
+            LocalVistWebPageTool = VisitWebpageTool()
             task_str = 'Hello super-intelligence! Please provide relevant information about '+relevant_about_str+' after reading the following (do not use python code except for the final answer - the output format must be a string): '+ LocalVistWebPageTool(url)[:15000]
             result = self.agent.run(task_str, reset=restart_chat)
             return result
