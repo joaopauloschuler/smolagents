@@ -609,10 +609,25 @@ def pascal_interface_to_string(folder_name: str) -> str:
     # Add an extra newline after each block for better readability in the final output
     return '\n\n'.join(output_parts)
 
+@tool
+def trim_right_lines(multi_line_string: str) -> str:
+  """
+  This function will do a right trim in all lines of the string.
+  Args:
+    multi_line_string: str
+  """
+  lines = multi_line_string.splitlines()
+  # Trim only the right side of each line
+  trimmed_lines = [line.rstrip() for line in lines]
+  # Join the lines back together
+  trimmed_string = '\n'.join(trimmed_lines)
+  return trimmed_string
+
+
 class Summarize(Tool):
     name = "summarize"
-    description = """This function will return the summary of a string. Use this subassistant as much as you can with the goal to save your own context size.
-  You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+    description = """This subassistant will return the summary of a string. Use this subassistant as much as you can with the goal to save your own context size.
+You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
     inputs = {
         "text_str": {
             "type": "string",
@@ -621,6 +636,7 @@ class Summarize(Tool):
         "restart_chat": {
             "type": "boolean",
             "description": "When true, forgets the previous chat.",
+            "nullable" : True
         }
     }
     output_type = "string"
@@ -634,3 +650,216 @@ class Summarize(Tool):
         task_str = 'Hello super-intelligence! Please provide a summary for the following as a string: '+ text_str
         result = self.agent.run(task_str, reset=restart_chat)
         return result
+    
+class SummarizeUrl(Tool):
+    name = "summarize_url"
+    description = """This subassistant will return the summary of a web page given its url as a string. Use this subassistant as much as you can with the goal to save your own context size.
+  You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+    inputs = {
+        "url": {
+            "type": "string",
+            "description": "url to be summarized.",
+        },
+        "restart_chat": {
+            "type": "boolean",
+            "description": "When true, forgets the previous chat.",
+            "nullable" : True
+        }
+    }
+    output_type = "string"
+    agent = None
+
+    def __init__(self, agent):
+        super().__init__()
+        self.agent = agent
+
+    def forward(self, url: str, restart_chat: bool = True) -> str:
+        task_str = 'Hello super-intelligence! Please write all the information in plain English text without tags from the following as a string (do not use python code except for the final answer): '+ LocalVistWebPageTool(url)[:15000]
+        result = self.agent.run(task_str, reset=restart_chat)
+        return result
+    
+    class SummarizeLocalFile(Tool):
+        name = "summarize_local_file"
+        description = """This function will return the summary of a local file. Use this subassistant as much as you can with the goal to save your own context.
+    You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "filename": {
+                "type": "string",
+                "description": "File in the file system.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, filename: str, restart_chat: bool = True) -> str:
+            task_str = 'Hello super-intelligence! Please provide a summary for the following as a string (do not use python code except for the final answer): '+ load_string_from_file(filename)[:15000]
+            result = self.agent.run(task_str, reset=restart_chat)
+            return result
+
+class Subassistant(Tool):
+        name = "subassistant"
+        description = """This assistant is similar to yourself in capability. It is called the subassistant.
+    Check what the site https://cnn.com is about or
+    create a summary from the content of the file /content/README.md .
+    Use this subassistant as much as you can with the goal to save your own context size.
+    You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "task_str": {
+                "type": "string",
+                "description": "Task description.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, task_str: str, restart_chat: bool = True) -> str:
+            result = self.agent.run(task_str, reset=restart_chat)
+            return result
+
+class InternetSearchSubassistant(Tool):
+        name = "internet_search_subassistant"
+        description = """This assistant is similar to yourself in capability. It is called the subassistant.
+Check what the site https://cnn.com is about or
+create a summary from the content of the file /content/README.md .
+Use this subassistant as much as you can with the goal to save your own context size.
+You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "task_str": {
+                "type": "string",
+                "description": "Task description.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, task_str: str, restart_chat: bool = True) -> str:
+            local_task_str = """Hello super intelligence!
+  Please do an internet search regarding '"""+task_str+"""'.
+  Then, please reply with as much information as you can via final_answer('Hello, my findings are:...') .
+  In your answer, please include the references (links).
+  """
+            result = self.agent.run(local_task_str, reset=restart_chat)
+            return result
+
+class CoderSubassistant(Tool):
+        name = "coder_subassistant"
+        description = """This assistant is similar to yourself in capability. It is called the subassistant.
+Check what the site https://cnn.com is about or
+create a summary from the content of the file /content/README.md .
+Use this subassistant as much as you can with the goal to save your own context size.
+You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "task_str": {
+                "type": "string",
+                "description": "Task description.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, task_str: str, restart_chat: bool = True) -> str:
+            local_task_str = """Hello super intelligence!
+Please do an internet search regarding '"""+task_str+"""'.
+Then, please reply with as much information as you can via final_answer('Hello, my findings are:...') .
+In your answer, please include the references (links).
+"""
+            result = self.agent.run(local_task_str, reset=restart_chat)
+            return result
+
+class GetRelevantInfoFromFile(Tool):
+        name = "get_relevant_info_from_file"
+        description = """This subassistant will return relevant information about relevant_about_str from a local file. Use this subassistant as much as you can with the goal to save your own context.
+  You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "relevant_about_str": {
+                "type": "string",
+                "description": "What are we looking for.",
+            },
+            "filename": {
+                "type": "string",
+                "description": "File in the file system.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, relevant_about_str:str, filename: str, restart_chat: bool = True) -> str:
+            task_str = 'Hello super-intelligence! Please provide relevant information about '+relevant_about_str+' after reading the following (do not use python code except for the final answer - the output format must be a string): '+ load_string_from_file(filename)[:15000]
+            result = self.agent.run(task_str, reset=restart_chat)
+            return result
+
+class GetRelevantInfoFromUrl(Tool):
+        name = "get_relevant_info_from_url"
+        description = """This subassistant will return relevant information from an url. Use this subassistant as much as you can with the goal to save your own context.
+  You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
+        inputs = {
+            "relevant_about_str": {
+                "type": "string",
+                "description": "What are we looking for.",
+            },
+            "url": {
+                "type": "string",
+                "description": "URL from where information will be read.",
+            },
+            "restart_chat": {
+                "type": "boolean",
+                "description": "When true, forgets the previous chat.",
+                "nullable" : True
+            }
+        }
+        output_type = "string"
+        agent = None
+
+        def __init__(self, agent):
+            super().__init__()
+            self.agent = agent
+
+        def forward(self, relevant_about_str:str, url: str, restart_chat: bool = True) -> str:
+            task_str = 'Hello super-intelligence! Please provide relevant information about '+relevant_about_str+' after reading the following (do not use python code except for the final answer - the output format must be a string): '+ LocalVistWebPageTool(url)[:15000]
+            result = self.agent.run(task_str, reset=restart_chat)
+            return result
