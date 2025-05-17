@@ -1441,14 +1441,14 @@ class CodeAgent(MultiStepAgent):
 
         if model_output is not None:
             model_output = str(model_output)
-            len1 = len(model_output)
+            # len1 = len(model_output)
             saved_files = self.save_files_from_text(model_output)
             model_output = self.remove_tags('savetofile', model_output)
-            len2 = len(model_output)
+            # len2 = len(model_output)
             appended_files = self.append_files_from_text(model_output)
             model_output = self.remove_tags('appendtofile', model_output)
-            len3 = len(model_output)
-            print('Lens:',len1, len2, len3)
+            # len3 = len(model_output)
+            # print('Lens:',len1, len2, len3)
 
         ### Parse output ###
         try:
