@@ -28,6 +28,7 @@ from collections.abc import Callable, Generator
 from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
+from .bp_executors import LocalExecExecutor
 
 import jinja2
 import yaml
