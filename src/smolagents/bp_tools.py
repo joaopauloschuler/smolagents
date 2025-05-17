@@ -1,7 +1,7 @@
 # beyond python tools
 
 from .tools import tool, Tool
-from default_tools import VisitWebpageTool
+from .default_tools import VisitWebpageTool
 import os
 import subprocess
 import shlex
