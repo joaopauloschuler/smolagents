@@ -728,6 +728,10 @@ You have been provided with these additional arguments, that you can access usin
         pattern = r'<includefile>(.*?)</includefile>'
         result = re.sub(pattern, replace_with_file_content, txt, flags=re.DOTALL)
         return result
+    
+    def set_system_prompt(self, new_system_prompt):
+        self.prompt_templates['system_prompt'] = new_system_prompt
+        self.system_prompt = self.initialize_system_prompt()
 
     def save(self, output_dir: str | Path, relative_path: str | None = None):
         """
