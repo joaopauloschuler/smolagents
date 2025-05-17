@@ -678,7 +678,7 @@ class SummarizeUrl(Tool):
         result = self.agent.run(task_str, reset=restart_chat)
         return result
     
-    class SummarizeLocalFile(Tool):
+class SummarizeLocalFile(Tool):
         name = "summarize_local_file"
         description = """This function will return the summary of a local file. Use this subassistant as much as you can with the goal to save your own context.
     You can restart the chat by setting restart_chat to True or ask for more details by setting restart_chat to False."""
