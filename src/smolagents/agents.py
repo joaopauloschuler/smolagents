@@ -655,7 +655,7 @@ You have been provided with these additional arguments, that you can access usin
             list: List of dictionaries with 'filename' and 'content' keys
         """
         pattern = r'<'+tag+r'\s+filename="([^"]+)">(.*?)</'+tag+r'>'
-        matches = re.findall(pattern, str(txt), re.DOTALL)
+        matches = re.findall(pattern, str(txt), flags=re.IGNORECASE |re.DOTALL)
 
         results = []
         for filename, content in matches:
@@ -675,7 +675,7 @@ You have been provided with these additional arguments, that you can access usin
             Text without the tag.
         """
         pattern = r'<'+tag+r'\s+filename="([^"]+)">(.*?)</'+tag+r'>'
-        return re.sub(pattern, "", txt)
+        return re.sub(pattern, "", txt, flags=re.IGNORECASE | re.DOTALL)
         
     def save_files_from_text(self, txt):
         files = self.parse_tags('savetofile', txt)
