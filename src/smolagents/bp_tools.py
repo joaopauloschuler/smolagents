@@ -619,7 +619,7 @@ class Summarize(Tool):
             "description": "Input text to be summarized.",
         },
         "restart_chat": {
-            "type": "bool",
+            "type": "boolean",
             "description": "When true, forgets the previous chat.",
         }
     }
