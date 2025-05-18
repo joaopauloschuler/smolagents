@@ -17,7 +17,23 @@ limitations under the License.
 **Beyond Python Smolagents** is a fork of the original [smolagents](https://github.com/huggingface/smolagents) that extends its original abilities to code in pascal, php and other languages.
 This fork dramatically expands its original capabilities to work with multiple programming languages and complex tasks through autonomous agent collaboration.
 It also excels at generating or updating documentation for existing code bases including writing readme files. It also does a good job at researching and experimenting ideas.
-**Contrary to the original implementation, this implementation allows agents to take full control of the host environment. ONLY RUN THIS CODE INSIDE A VMs OR DOCKER WITHOUT ANY IMPORTANT INFORMATION ON IT. USE IT AT YOUR OWN RISK!**
+
+***
+### 🔥🚨 EXTREME SECURITY RISK 🚨🔥
+***
+
+**This implementation grants agents extensive access and control over the environment in which they run.** This level of control is intentionally designed to enable powerful automation and interaction capabilities across different languages and the operating system (including file system access, running arbitrary OS commands, and executing code in various languages).
+
+**CONSEQUENTLY, USING THIS SOFTWARE IN AN ENVIRONMENT CONTAINING SENSITIVE DATA, PRODUCTION SYSTEMS, OR IMPORTANT PERSONAL INFORMATION IS HIGHLY DANGEROUS AND STRONGLY DISCOURAGED.**
+
+**YOU MUST ONLY RUN THIS CODE INSIDE A SECURELY ISOLATED ENVIRONMENT** specifically set up for this purpose, such as:
+*   **A dedicated Virtual Machine (VM):** Configure a VM with minimal or no sensitive data, isolated from your main network if possible. Treat anything inside the VM as potentially compromised.
+*   **A locked-down Container (like Docker):** Use containerization to create an isolated filesystem and process space. Ensure no sensitive volumes from your host machine are mounted into the container. Limit network access if possible.
+
+**DO NOT** run this code directly on your primary development machine, production servers, personal computer, or any environment with valuable data or system access you wish to protect.
+
+**USE THIS SOFTWARE ENTIRELY AT YOUR OWN RISK! The developers explicitly disclaim responsibility for any damage, data loss, security breaches, or other negative consequences resulting from the use of this software in an insecure or inappropriate environment.** This warning cannot be overstated.
+***
 
 ## Installation
 To get started with Beyond Python Smolagents, follow these steps:
@@ -71,13 +87,17 @@ coder_agent.run("Please list the files in the current folder.")
 
 Beyond Python Smolagents is built around the concept of AI agents equipped with tools to interact with their environment and solve tasks.
 
-*   **Agents:** Autonomous entities that receive instructions and use available tools to achieve objectives. Different agent types are available for specific purposes:
+*   **Agents:** Autonomous entities powered by language models that receive instructions and use available tools to achieve objectives. Different agent types (`CodeAgent`, `ToolCallingAgent`, `MultiStepAgent`) are available, each tailored for potentially different purposes and capable of being configured with specific tool sets:
     *   `CodeAgent`: Specialized in code generation, execution, and debugging across multiple languages.
     *   `ToolCallingAgent`: A general-purpose agent capable of utilizing a defined set of tools.
     *   `MultiStepAgent`: Designed to break down complex tasks into smaller steps and execute them sequentially or iteratively.
-*   **Models:** Language models (LLMs) that power the agents' reasoning and generation capabilities. The framework supports various models via LiteLLM.
-*   **Tools:** Functions or utilities that agents can call to perform actions, such as running OS commands, interacting with the file system, compiling code, or searching the internet.
-*   **Sub-assistants:** Specialized agents configured as tools, allowing a primary agent ("the boss") to delegate specific sub-tasks to other agents with tailored capabilities.
+*   **Models:** The underlying Language Models (LLMs) that provide the cognitive capabilities for the agents, enabling them to understand tasks, reason, and generate responses or code. The framework integrates with various LLMs via the LiteLLM library, allowing users to select models based on cost, performance, context window size, and specific capabilities.
+*   **Tools:** Functions or utilities that agents can call to perform actions in the environment. These abstract interactions such as running OS commands, accessing the filesystem, interacting with the internet, or executing code in different programming languages. Tools are fundamental; without them, agents can only generate text; with them, they can *act*. The framework provides many built-in tools, and users can define custom ones.
+*   **Sub-assistants:** Instances of agents are treated as tools and provided to a primary agent (often called "the boss"). This allows a higher-level agent to delegate specific sub-tasks to specialized agents. For example, a main agent tasked with building a project might delegate code generation to a `CoderSubassistant` or research to an `InternetSearchSubassistant`. This enables building complex, modular artificial workforce and leverages the specialized capabilities of different agent configurations.
+*   **Base Tools (`add_base_tools=True/False`):** A crucial parameter when initializing agents. It controls whether an agent automatically receives a default, standard set of tools provided by the Beyond Python Smolagents framework.
+    *   Setting `add_base_tools=True` equips the agent with a common set of utilities right out of the box. This set typically includes tools for basic file operations (`save_string_to_file`, `load_string_from_file`), web interaction (`VisitWebpageTool`, `DuckDuckGoSearchTool`), and Python execution (`PythonInterpreterTool`), among others. These are added *in addition to* any tools explicitly provided in the `tools` list during initialization. This is useful for creating general-purpose agents.
+    *   Setting `add_base_tools=False` means the agent will *only* have access to the tools explicitly passed to it via the `tools` parameter during initialization. This allows for creating highly minimal or very specifically-purposed agents with a restricted set of actions, which can be beneficial for security or task focus.
+
 
 ### Creating the team
 Beyond Python Smolagents allows you to compose complex working groups by having agents delegate tasks to other specialized agents, referred to as sub-assistants. This modular approach helps manage complexity and leverage agents optimized for specific tasks (e.g., coding, internet search, summarization).
@@ -113,8 +133,9 @@ the_boss.run("Code, test and debug something that will impress me!")
 ```
 
 ## Use heavy thinking
-This method combines evolutive computing, genetic algorithms and agents to produce a final result. This is the most expensive method but it delivers the best results. This is a source code example to produce a readme from an existing code base:
+`evolutive_problem_solver` combines evolutive computing, genetic algorithms and agents to produce a final result. This is the most expensive method but it delivers the best results. This is a source code example to produce a readme from an existing code base:
 ```
+!git clone git@github.com:joaopauloschuler/neural-api.git
 current_source = source_code_to_string('neural-api')
 project_name = 'neural-api'
 task = """You have access to an Ubuntu system. You have available to you python, php and free pascal.
@@ -144,7 +165,7 @@ You contribution will be helping others to understand how to use this project an
 developers will be able to build on the top of it.
 It would be fantastic if you could add to the documentation ideas about to solve problems using this project. Solving ideas about how to use it to solve problems in the real world.
 For saving documentation, use the tags <savetofile> and <appendtofile>. Trying to save documentation via python code is just too hard and error prone.
-When asked to test or review documentation, make sure that refered files or functions do actually exist. This is to prevent broken links.
+When asked to test or review documentation, make sure that referred files or functions do actually exist. This is to prevent broken links.
 Your documentation should focus on existing features only. Do not document future or to be be developed features.
 Your goal is documentation.
 Avoid adding code snippets.
