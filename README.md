@@ -128,8 +128,13 @@ tools = [save_string_to_file, load_string_from_file, copy_file, get_file_size,
   run_os_command, run_php_file, compile_and_run_pascal_code,
   ]
 
+task_str="""Code, test and debug something that will impress me!
+For completing the task, you will first plan for it.
+You will decide what task will be assigned to each of your sub-assistants.
+You will decide the need for researching using internet_search_subassistant before you actually start coding a solution."""
+
 the_boss = CodeAgent(model=coder_model, tools = tools, add_base_tools=True)
-the_boss.run("Code, test and debug something that will impress me!")
+the_boss.run(task_str)
 ```
 
 ## Use heavy thinking
