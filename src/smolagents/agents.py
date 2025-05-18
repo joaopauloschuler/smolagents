@@ -65,7 +65,7 @@ from .monitoring import (
     LogLevel,
     Monitor,
 )
-from .remote_executors import DockerExecutor, E2BExecutor, LocalExecExecutor
+from .remote_executors import DockerExecutor, E2BExecutor
 from .tools import Tool
 from .utils import (
     AgentError,
