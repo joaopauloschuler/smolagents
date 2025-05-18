@@ -43,9 +43,9 @@ To get started with Beyond Python Smolagents, follow these steps:
     !pip install litellm==1.67.2
     ```
 
-2.  **Clone the Repository:** Clone the `development5` branch of the Beyond Python Smolagents repository.
+2.  **Clone the Repository:** Clone the `v1.14-bp` branch of the Beyond Python Smolagents repository.
     ```bash
-    !git clone -b development5 https://github.com/joaopauloschuler/beyond-python-smolagents smolagents
+    !git clone -b v1.14-bp https://github.com/joaopauloschuler/beyond-python-smolagents smolagents
     ```
 
 3.  **Install Beyond Python Smolagents:** Install the cloned project, including the LiteLLM dependencies.
