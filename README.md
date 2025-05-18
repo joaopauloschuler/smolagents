@@ -20,11 +20,24 @@ It also excels at generating or updating documentation for existing code bases i
 **Contrary to the original implementation, this implementation allows agents to take full control of the host environment. ONLY RUN THIS CODE INSIDE A VMs OR DOCKER WITHOUT ANY IMPORTANT INFORMATION ON IT. USE IT AT YOUR OWN RISK!**
 
 ## Installation
-```
-!pip install litellm==1.67.2
-!git clone -b development5 https://github.com/joaopauloschuler/beyond-python-smolagents smolagents
-!pip install ./smolagents[litellm]
-```
+To get started with Beyond Python Smolagents, follow these steps:
+
+1.  **Install LiteLLM:** LiteLLM is used to interact with various language models.
+    ```bash
+    !pip install litellm==1.67.2
+    ```
+
+2.  **Clone the Repository:** Clone the `development5` branch of the Beyond Python Smolagents repository.
+    ```bash
+    !git clone -b development5 https://github.com/joaopauloschuler/beyond-python-smolagents smolagents
+    ```
+
+3.  **Install Beyond Python Smolagents:** Install the cloned project, including the LiteLLM dependencies.
+    ```bash
+    !pip install ./smolagents[litellm]
+    ```
+
+This will set up the necessary libraries and the Beyond Python Smolagents framework in your environment.
 
 ## Basic usage (single agent)
 Create a single agent with various tools for working with different programming languages:
@@ -53,7 +66,25 @@ coder_agent.run("Please list the files in the current folder.")
 ```
 
 ## Create a team of agents (sub-assistants) and use them as tools
-Create specialized agents and use them as tools to tackle complex tasks saving context usage:
+
+### Core Concepts
+
+Beyond Python Smolagents is built around the concept of AI agents equipped with tools to interact with their environment and solve tasks.
+
+*   **Agents:** Autonomous entities that receive instructions and use available tools to achieve objectives. Different agent types are available for specific purposes:
+    *   `CodeAgent`: Specialized in code generation, execution, and debugging across multiple languages.
+    *   `ToolCallingAgent`: A general-purpose agent capable of utilizing a defined set of tools.
+    *   `MultiStepAgent`: Designed to break down complex tasks into smaller steps and execute them sequentially or iteratively.
+*   **Models:** Language models (LLMs) that power the agents' reasoning and generation capabilities. The framework supports various models via LiteLLM.
+*   **Tools:** Functions or utilities that agents can call to perform actions, such as running OS commands, interacting with the file system, compiling code, or searching the internet.
+*   **Sub-assistants:** Specialized agents configured as tools, allowing a primary agent ("the boss") to delegate specific sub-tasks to other agents with tailored capabilities.
+
+### Creating the team
+Beyond Python Smolagents allows you to compose complex working groups by having agents delegate tasks to other specialized agents, referred to as sub-assistants. This modular approach helps manage complexity and leverage agents optimized for specific tasks (e.g., coding, internet search, summarization).
+
+The library provides wrapper classes (Subassistant, CoderSubassistant, InternetSearchSubassistant, Summarize, etc.) that turn an agent instance into a tool that another agent can call.
+
+Here's an example demonstrating how to set up a "boss" agent that can utilize other agents as sub-assistants:
 ```
 no_tool_agent = ToolCallingAgent(tools=[], model=model, add_base_tools=False)
 tooled_agent = ToolCallingAgent(tools=tools, model=model, add_base_tools=True)
@@ -130,3 +161,10 @@ evolutive_problem_solver(
     tools=tools        # Tools available to the agents
 )
 ```
+
+The source code above shows one of the core strengths of Beyond Python Smolagents: Its ability to work with codebases across multiple languages to generate and update documentation automatically. The `source_code_to_string` and `pascal_interface_to_string` tools are particularly useful here, allowing agents to ingest the codebase structure and content.
+
+For complex documentation tasks, such as generating a comprehensive README from a large project, you can leverage advanced techniques provided by `evolutive_problem_solver`.
+
+
+
