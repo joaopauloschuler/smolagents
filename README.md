@@ -138,7 +138,15 @@ the_boss.run(task_str)
 ```
 
 ## Use heavy thinking
-`evolutive_problem_solver` combines evolutive computing, genetic algorithms and agents to produce a final result. This is the most expensive method but it delivers the best results. This is a source code example to produce a readme from an existing code base:
+Using "Heavy Thinking" is typically more computationally intensive and time-consuming than basic single-agent tasks, but it is designed to yield superior results for difficult problems that benefit from a more thorough, multi-pass approach.
+`evolutive_problem_solver` combines evolutive computing, genetic algorithms and agents to produce a final result.
+
+The "Heavy Thinking" method within Beyond Python Smolagents represents an advanced paradigm for tackling highly complex or open-ended problems that may not be solvable in a single agent turn. It's particularly useful for tasks requiring significant iterative refinement, exploration, or multi-step reasoning, such as generating comprehensive documentation from a large codebase or complex coding tasks.
+
+While `evolutive_problem_solver` internal workings involve sophisticated logic, the user interacts with it by providing a detailed task prompt and a set of tools. `evolutive_problem_solver` has an iterative process, potentially involving multiple agent interactions, intermediate evaluations, and refinements over several "steps" and "agent_steps" within each step, aiming to converge on a high-quality solution.
+
+Here is how you might conceptually set up and invoke the `evolutive_problem_solver` for a task like generating comprehensive documentation from source code. This example focuses on *how* you would structure the input prompt and call the function:
+
 ```
 !git clone git@github.com:joaopauloschuler/neural-api.git
 current_source = source_code_to_string('neural-api')
@@ -151,19 +159,6 @@ You will save the updated versions of the README.md into new files as directed.
 The original version of the readme file is provided in the tag <file filename="README.md"><file>.
 When asked to test, given that this is a task regarding documentation, you should review the README file.
 When asked to code, you will produce documentation.
-
-As you are required to run python code at each step, for intermediate steps, you can follow this example:
-
-Code:
-```py
-print('I updated the first paragraph, this is so interesting, I have just realized how much ... , I will next review ..., thanks to this insight, I now realize ..., knowledge is incremental ...')
-```<end_code>
-
-When you finish, you can use this example (if you like):
-Code:
-```py
-final_answer('I have finished the task. YAY!')
-```<end_code>
 
 You will write the documentation in a technical and non commercial language.
 You contribution will be helping others to understand how to use this project and its inner workings so future
