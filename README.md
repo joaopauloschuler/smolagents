@@ -15,6 +15,7 @@ limitations under the License.
 -->
 # Beyond Python Smolagents
 **Beyond Python Smolagents** is a fork of the original [smolagents](https://github.com/huggingface/smolagents) that extends its original abilities to code in pascal, php and other languages.
+This fork dramatically expands its original capabilities to work with multiple programming languages and complex tasks through autonomous agent collaboration.
 It also excels at generating or updating documentation for existing code bases including writing readme files. It also does a good job at researching and experimenting ideas.
 **Contrary to the original implementation, this implementation allows agents to take full control of the host environment. ONLY RUN THIS CODE INSIDE A VMs OR DOCKER WITHOUT ANY IMPORTANT INFORMATION ON IT. USE IT AT YOUR OWN RISK!**
 
@@ -26,7 +27,7 @@ It also excels at generating or updating documentation for existing code bases i
 ```
 
 ## Basic usage (single agent)
-
+Create a single agent with various tools for working with different programming languages:
 ```
 import smolagents
 from smolagents.bp_tools import *
@@ -34,7 +35,6 @@ from smolagents.bp_utils import *
 from smolagents.bp_thinkers import *
 from smolagents import HfApiModel, LiteLLMModel, LogLevel
 from smolagents import CodeAgent, MultiStepAgent, ToolCallingAgent
-from smolagents import PythonInterpreterTool, VisitWebpageTool, UserInputTool, DuckDuckGoSearchTool
 from smolagents import tool
 
 MAX_TOKENS = 64000
@@ -53,6 +53,7 @@ coder_agent.run("Please list the files in the current folder.")
 ```
 
 ## Create a team of agents (sub-assistants) and use them as tools
+Create specialized agents and use them as tools to tackle complex tasks saving context usage:
 ```
 no_tool_agent = ToolCallingAgent(tools=[], model=model, add_base_tools=False)
 tooled_agent = ToolCallingAgent(tools=tools, model=model, add_base_tools=True)
@@ -118,5 +119,14 @@ Your goal is documentation.
 Avoid adding code snippets.
 """
 print("Input size:", len(task))
-evolutive_problem_solver(coder_model, task, agent_steps=54, steps=4, start_now=True, fileext='.md', tools=tools)
+# Run the evolutive solver
+evolutive_problem_solver(
+    coder_model,       # The LLM to use
+    task,              # The task description
+    agent_steps=54,    # Number of steps each agent can take
+    steps=4,           # Number of evolutionary iterations
+    start_now=True,    # Start from scratch
+    fileext='.md',     # File extension for outputs
+    tools=tools        # Tools available to the agents
+)
 ```
