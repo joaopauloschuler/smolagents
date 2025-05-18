@@ -61,7 +61,7 @@ print("hello")
 Code:
 ```py
 # print the content of another_file.csv
-load_string_from_file(filename="another_file.csv")
+print(load_string_from_file(filename="another_file.csv"))
 ```<end_code>
 </example>
 
@@ -250,8 +250,22 @@ VERY IMPORTANT
 All your replies must include a code block. If you do not have the final answer, you must include a code block with a print statement.
 
 As per example above, you'll start the python code block with ```py and end it with ```<end_code>.
-"""
 
+As you are required to run python code at each step, for intermediate steps, you can follow this example:
+<example>
+Code:
+```py
+print('I updated the first paragraph, this is so interesting, I have just realized how much ... , I will next review ..., thanks to this insight, I now realize ..., knowledge is incremental ...')
+```<end_code>
+</example>
+When you finish, you can use this example (if you like):
+<example>
+Code:
+```py
+final_answer('I have finished the task. YAY!')
+```<end_code>
+</example>
+"""
 def evolutive_problem_solver(p_coder_model,
   task_str,
   agent_steps:int,
@@ -280,24 +294,23 @@ def evolutive_problem_solver(p_coder_model,
     return coder_agent
 
   def test_and_refine(local_agent, solution_file):
-    print('Refine 1')
     task_description="""Thank you!
 Please detail what did you change.
 """
+    print('Refine 1')
     local_agent.run(task_description, reset=False)
-    print('Refine 2')
     task_description="""Thank you! Love your work!
 In the case that you believe that you have not properly reviewed/tested it yet, please review/test your own solution now.
 After you test and bug fix it, please save the full updated source code that solves the task described in <task></task> into the file '"""+solution_file+"""'.
 When you have finished, call the function final_answer("Task completed! YAY!") please.
 """
+    print('Refine 2')
     local_agent.run(task_description, reset=False)
-    print('Refine 3')
     task_description="""Thank you again!
 In the case that you have any advice that you would like to give to yourself the next time you have to code anything, call the function final_answer
 with any advice that you would like to give to yourself to a future version of yourself.
 """
-    print('Refine 4')
+    print('Refine 3')
     new_advice = str(local_agent.run(task_description, reset=False))
     # if new_advice len is bigger then zero
     if (len(new_advice) > 0):
