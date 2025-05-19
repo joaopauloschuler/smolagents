@@ -191,6 +191,82 @@ The source code above shows one of the core strengths of Beyond Python Smolagent
 
 For complex documentation tasks, such as generating a comprehensive README from a large project, you should leverage advanced techniques provided by `evolutive_problem_solver`.
 
+### Heavy thinking inner working
+
+**1. Overall Workflow:**
+
+The `evolutive_problem_solver` function sets up a loop where a `CodeAgent` acts as both a coder and a critic. It starts with initial solutions, then enters a cycle of:
+1.  Analyzing and comparing current solutions.
+2.  Potentially mixing solutions if beneficial.
+3.  Selecting the "best" current solution.
+4.  Generating two new alternative solutions by applying improvements suggested by the agent itself, potentially guided by past advice.
+5.  Refining the new solutions (detailing changes, testing, getting advice).
+6.  Potentially merging smaller new solutions with the current best.
+
+This process simulates an evolutionary cycle where solutions compete, combine (mixing), and are refined based on criteria evaluated by the AI agent, aiming to improve the quality of the solution over time. The `advices.notes` file serves as a form of accumulated knowledge or 'genetic memory' for the agent across iterations. The process repeats for a fixed number of `steps`.
+
+**2. `get_local_agent()` Inner Function:**
+
+This helper function is responsible for creating and configuring a `CodeAgent` instance based on the parameters passed to the main `evolutive_problem_solver` function. It sets up the agent's tools, model, import permissions, max steps, callbacks, executor type, system prompt, and log level. This ensures that a fresh agent instance with the desired configuration is available whenever needed during the process.
+
+**3. `test_and_refine(local_agent, solution_file)` Inner Function:**
+
+This function orchestrates a series of refinement steps for a given `solution_file` using the `local_agent`. It guides the agent through the following tasks:
+*   **Refine 1:** Prompts the agent to detail the changes it made (presumably in the immediately preceding step where the solution file was created or modified).
+*   **Refine 2:** Instructs the agent to review and test its own solution. If the agent feels it needs further refinement, it's prompted to update the full source code in the specified `solution_file` and call `final_answer("Task completed! YAY!")`.
+*   **Refine 3:** Asks the agent to provide any advice it would give to its future self based on the current task and solution process. The output of this step is captured as `new_advice`. If `new_advice` is not empty, it is appended to a file named `advices.notes`, separated by a horizontal rule (`---`).
+
+**4. Main Execution Logic:**
+
+*   **Initialization:**
+    *   A `local_task_description` is created, wrapping the original `task_str` in `<task>` tags.
+    *   A list `valid_solutions` is defined to hold the base filenames for the three potential solutions ('solution1', 'solution2', 'solution3').
+    *   A `motivation` string is defined, encouraging the agent to be extensive, detailed, and creative.
+
+*   **Initial Solution Generation (`if start_now:`):**
+    *   If `start_now` is True, the process begins by generating the first three distinct solutions.
+    *   A `local_agent` is obtained using `get_local_agent()`.
+    *   The agent is run three times, each time tasked with solving the `local_task_description` with the added `motivation` and saving the output to `solution1`, `solution2`, and `solution3` respectively (with the specified `fileext`). The `reset=True` ensures each initial generation starts with a fresh context for the agent.
+    *   After each initial solution is generated, `test_and_refine` is called for that solution file to detail changes, test, and capture advice.
+
+*   **Evolution Loop (`for i in range(steps):`):**
+    *   The code enters a loop that runs for `steps` iterations, representing the evolutionary process.
+    *   Inside the loop, a new `local_agent` is created at the start of each iteration.
+    *   **Analysis and Comparison:**
+        *   A detailed `task_description` is created. This prompt includes the original task, the content of `solution1`, `solution2`, and `solution3` (loaded using `load_string_from_file`), all enclosed in appropriate XML-like tags (`<solution1>`, etc.).
+        *   The agent is instructed to analyze these three solutions, explain their advantages and disadvantages, prioritize solutions with more features, and output the analysis as text using `final_answer()`. The agent is explicitly told *not* to code anything except calling `final_answer` with text.
+        *   The agent is run with this analysis task (`reset=True` for a fresh start).
+    *   **Mixing Decision:**
+        *   If it's not one of the last two steps (`i < steps - 2`), the agent is asked if mixing parts of the solutions would be beneficial.
+        *   The agent's response is captured, and if it's 'yes', the `should_mix` flag is set to True.
+    *   **Mixing Logic (`if should_mix:`):**
+        *   If mixing is deemed beneficial, `solution2` is chosen as the destination file for the mixed solution.
+        *   The agent is tasked with mixing parts of the existing solutions into `solution2` and saving the full result there.
+        *   `test_and_refine` is called on `solution2`.
+        *   `continue` skips the rest of the current loop iteration (selection and alternative generation) and proceeds to the next evolutionary step with the potentially mixed `solution2` now available for comparison.
+    *   **Best Solution Selection:**
+        *   If mixing is not happening, the agent is asked to select the best solution among `solution1`, `solution2`, and `solution3` by calling `final_answer()` with the chosen filename.
+        *   The selected filename is stored in `selected_solution`.
+    *   **Best Solution Handling:**
+        *   If `selected_solution` is one of the valid filenames, the corresponding file is copied to `best_solution.best`.
+        *   **Alternative Generation and Improvement (`if i < steps - 1:`):**
+            *   If it's not the very last step (`i < steps - 1`), the process prepares to generate alternative solutions based on the newly selected `best_solution.best`.
+            *   The current `best_solution.best` is copied to `solution3` to serve as a baseline for comparison in the next iteration.
+            *   A loop runs twice (for `alternatives_cnt` 0 and 1), targeting `solution1` and `solution2` as the files for the new alternatives.
+            *   For each alternative:
+                *   The agent is presented with the current `best_solution.best` and the accumulated `advices.notes` and asked to suggest improvements (outputting text via `final_answer`).
+                *   The agent is asked to randomly pick one suggestion and code it.
+                *   The agent is run to implement the selected improvement, tasked with updating the *existing* solution rather than starting a new one. For the first alternative (`alternatives_cnt == 0`), the agent is encouraged to be bold and add many improvements.
+                *   The agent is asked if more review/testing is needed.
+                *   The agent is instructed to save the *full* updated solution to the current `solution_file` (`solution1` or `solution2`) using `<savetofile>` tags and confirm completion with `final_answer("Task completed! YAY!")`.
+                *   `test_and_refine` is called on this updated solution file.
+                *   **Merging Smaller Solutions:** A peculiar step checks if the newly generated `solution_file` is *smaller* than the `best_solution.best`. If it is, the agent is tasked with merging the `best_solution.best` and the new `solution_file`, assuming the larger `best_solution.best` might contain valuable parts missing from the smaller new version. The merged result is saved back to the `solution_file`.
+    *   **Error Handling:** A `try...except` block is present to catch potential errors during the loop iteration, printing 'ERROR'.
+
+**5. Return Value:**
+
+After the evolutionary loop completes (`steps` iterations), the function returns the content of the final (best) solution.
+
 ## Available agent tools
 
 The `bp_tools.py` files provides a suite of functions and classes that can be used as tools by agents. This list details key tools and a brief description of their function:
