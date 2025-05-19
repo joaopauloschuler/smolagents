@@ -480,4 +480,4 @@ final_answer("Task completed! YAY!")
 
     except:
       print('ERROR')
-  return load_string_from_file('best_solution.py')
+  return load_string_from_file('best_solution.best')
