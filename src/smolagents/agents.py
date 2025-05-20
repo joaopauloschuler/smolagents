@@ -1400,31 +1400,47 @@ class CodeAgent(MultiStepAgent):
         memory_step.model_input_messages = input_messages
         try:
             additional_args = {"grammar": self.grammar} if self.grammar is not None else {}
-            if self.stream_outputs:
-                output_stream = self.model.generate_stream(
-                    input_messages,
-                    stop_sequences=["<end_code>"],
-                    **additional_args,
-                )
-                output_text = ""
-                with Live("", console=self.logger.console, vertical_overflow="visible") as live:
-                    for event in output_stream:
-                        if event.content is not None:
-                            output_text += event.content
-                            live.update(Markdown(output_text))
+            retry_cnt = 0
+            success_flag = False
+            MAX_TRIES = 3
+            while (retry_cnt < MAX_TRIES) and (not success_flag):
+                retry_cnt = retry_cnt + 1
+                try:
+                    if self.stream_outputs:
+                        output_stream = self.model.generate_stream(
+                            input_messages,
+                            # stop_sequences=["<end_code>"], # we need to find if the LLM sends <end_code>
+                            **additional_args,
+                        )
+                        output_text = ""
+                        with Live("", console=self.logger.console, vertical_overflow="visible") as live:
+                            for event in output_stream:
+                                if event.content is not None:
+                                    output_text += event.content
+                                    live.update(Markdown(output_text))
 
-                model_output = output_text
-                chat_message = ChatMessage(role="assistant", content=model_output)
-                memory_step.model_output_message = chat_message
-                model_output = chat_message.content
-            else:
-                chat_message: ChatMessage = self.model(
-                    input_messages,
-                    stop_sequences=["<end_code>"],
-                    **additional_args,
-                )
-                memory_step.model_output_message = chat_message
-                model_output = chat_message.content
+                        model_output = output_text
+                        chat_message = ChatMessage(role="assistant", content=model_output)
+                        memory_step.model_output_message = chat_message
+                        model_output = chat_message.content
+                    else:
+                        chat_message: ChatMessage = self.model(
+                            input_messages,
+                            # stop_sequences=["<end_code>"], # we need to find if the LLM sends <end_code>
+                            **additional_args,
+                        )
+                        memory_step.model_output_message = chat_message
+                        model_output = chat_message.content
+                    success_flag = True
+                except:
+                    if (retry_cnt == MAX_TRIES):
+                        raise
+
+            # This adds <end_code> sequence to the history.
+            # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
+            # if model_output and str(model_output).strip().endswith("```"):
+            #     model_output += "<end_code>"
+            #     memory_step.model_output_message.content = model_output
 
             str_len = len(str(model_output))
             str_len_str = str(str_len)
@@ -1433,12 +1449,6 @@ class CodeAgent(MultiStepAgent):
                 title="Output of the LLM with "+str_len_str+" chars:",
                 level=LogLevel.INFO,
             )
-
-            # This adds <end_code> sequence to the history.
-            # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
-            if model_output and str(model_output).strip().endswith("```"):
-                model_output += "<end_code>"
-                memory_step.model_output_message.content = model_output
 
             memory_step.model_output = model_output
         except Exception as e:
@@ -1498,8 +1508,12 @@ second step
 
 REMEMBER: the Code section is mandatory. Make sure to test or verify any coding task before considering it completed.
 """
+            if not ("<end_code>" in model_output):
+              error_msg = error_msg + """You missed adding <end_code> at the end of your code."""  
+            elif not ("```<end_code>" in model_output):
+              error_msg = error_msg + """You missed adding ```<end_code> at the end of your code."""
             if (str_len>8000):
-              error_msg = """
+              error_msg = error_msg + """
 If you are trying to save or run a too big file, you can try to save and append in steps:
 <example>
 Tags:
@@ -1550,6 +1564,7 @@ You can combine the above to be able to run very large portions of python code i
         is_final_answer = False
         try:
             output, execution_logs, is_final_answer = self.python_executor(code_action)
+            execution_logs = truncate_content(execution_logs, 20000) # execution log is truncated to 20K
             execution_outputs_console = []
             if len(execution_logs) > 0:
                 execution_outputs_console += [
