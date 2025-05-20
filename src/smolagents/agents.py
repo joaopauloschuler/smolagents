@@ -29,7 +29,6 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 from .bp_executors import LocalExecExecutor
-from .bp_utils import delay_execution_10
 
 import jinja2
 import yaml
@@ -1437,7 +1436,7 @@ class CodeAgent(MultiStepAgent):
                     if (retry_cnt == MAX_TRIES):
                         raise
                     else:
-                        delay_execution_10()
+                        time.sleep(30)
 
             # This adds <end_code> sequence to the history.
             # This will nudge ulterior LLM calls to finish with <end_code>, thus efficiently stopping generation.
