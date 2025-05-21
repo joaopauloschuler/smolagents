@@ -1471,7 +1471,26 @@ class CodeAgent(MultiStepAgent):
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
-            error_msg = """Error in code parsing. Follow examples with the desired structure in the tags <example></example>:
+            code_example = """ Follow this example:
+<example>
+Code:
+```py
+print('hello')
+# final_answer('hello') # use final_answer to say that you have completed the task or to ask for more tasks
+```<end_code>
+</example>
+""" 
+            error_msg = ""
+            if not ("```" in model_output):
+              error_msg = error_msg + """You missed adding the code section."""+code_example
+            elif not ("```py" in model_output):
+              error_msg = error_msg + """You missed adding python code."""+code_example
+            elif not ("<end_code>" in model_output):
+              error_msg = error_msg + """You missed adding <end_code> at the end of your code.""" +code_example
+            elif not ("```<end_code>" in model_output):
+              error_msg = error_msg + """You missed adding ```<end_code> at the end of your code."""+code_example
+            else:
+                error_msg = """Error in code parsing. Follow examples with the desired structure in the tags <example></example>:
 <example>
 Thought: I will use python code to compute the result of the operation and then return the final answer using the `final_answer` tool.
 Free will: I am going to solve this task with confidence.
@@ -1479,7 +1498,7 @@ Tags:
 <savetofile filename="free-will.txt">
 I am going to solve this task with confidence.
 </savetofile>
-  Code:
+Code:
 ```py
 result = 5 + 3 + 1294.678
 final_answer(result)
@@ -1510,12 +1529,8 @@ second step
 
 REMEMBER: the Code section is mandatory. Make sure to test or verify any coding task before considering it completed.
 """
-            if not ("<end_code>" in model_output):
-              error_msg = error_msg + """You missed adding <end_code> at the end of your code."""  
-            elif not ("```<end_code>" in model_output):
-              error_msg = error_msg + """You missed adding ```<end_code> at the end of your code."""
-            if (str_len>8000):
-              error_msg = error_msg + """
+                if (str_len>8000):
+                    error_msg = error_msg + """
 If you are trying to save or run a too big file, you can try to save and append in steps:
 <example>
 Tags:
