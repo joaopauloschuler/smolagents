@@ -401,6 +401,7 @@ If you believe that the solution 3 is the best, you'll call the function final_a
           # the past best solution is always the solution3.py
           # !cp best_solution.py solution3.py
           shutil.copyfile('best_solution.best', 'solution3'+fileext)
+          shutil.copyfile('best_solution.best', 'best_solution_'+str(i)+fileext)
           for alternatives_cnt in range(2):
             solution_cnt = alternatives_cnt+1
             solution_file = 'solution'+str(solution_cnt)+fileext
