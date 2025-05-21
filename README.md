@@ -17,10 +17,10 @@ limitations under the License.
 **Beyond Python Smolagents** is a fork of the original [smolagents](https://github.com/huggingface/smolagents) that extends its original abilities to:
 * Code in pascal, php and other languages.
 * **It is also able to natively run python code via the `exec` command allowing faster and unrestricted code execution**.
-* **It excels at generating or updating documentation for existing code bases including writing readme files**.
-* It dramatically expands its original capabilities to work with multiple programming languages and complex tasks through agent collaboration.
+* **It excels at generating or updating documentation for existing code bases including README files**.
 * It is able to research and write technical documentation.
-* It can experiment ideas that include compiling, run and bug fixing source code.
+* It dramatically expands [smolagents](https://github.com/huggingface/smolagents) original capabilities to work with multiple programming languages and complex tasks through agent collaboration.
+* It can experiment ideas that include compiling and bug fixing source code.
 
 ***
 ### 🔥🚨 EXTREME SECURITY RISK 🚨🔥
