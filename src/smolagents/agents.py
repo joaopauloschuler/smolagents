@@ -1471,12 +1471,15 @@ class CodeAgent(MultiStepAgent):
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output))
         except Exception as e:
-            code_example = """ Follow this example:
+            code_example = """ Follow this example in <example></example>:
 <example>
+Any tags or comments.
+
 Code:
 ```py
-print('hello')
-# final_answer('hello') # use final_answer to say that you have completed the task or to ask for more tasks
+print('the result of a computation for debug, test or verification.')
+# final_answer('I have completed the task') # use final_answer to say that you have completed the task or to ask for more tasks
+# You can leave the code section empty if you intend to continue to work in the next step. 
 ```<end_code>
 </example>
 """ 
