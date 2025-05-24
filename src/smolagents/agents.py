@@ -1409,7 +1409,7 @@ class CodeAgent(MultiStepAgent):
                     if self.stream_outputs:
                         output_stream = self.model.generate_stream(
                             input_messages,
-                            # stop_sequences=["<end_code>"], # we need to find if the LLM sends <end_code>
+                            stop_sequences=["</runcode>"],
                             **additional_args,
                         )
                         output_text = ""
@@ -1426,7 +1426,7 @@ class CodeAgent(MultiStepAgent):
                     else:
                         chat_message: ChatMessage = self.model(
                             input_messages,
-                            # stop_sequences=["<end_code>"], # we need to find if the LLM sends <end_code>
+                            stop_sequences=["</runcode>"],
                             **additional_args,
                         )
                         memory_step.model_output_message = chat_message
@@ -1464,14 +1464,16 @@ class CodeAgent(MultiStepAgent):
             # len2 = len(model_output)
             appended_files = self.append_files_from_text(model_output)
             model_output = self.remove_tags('appendtofile', model_output)
+            if ('<runcode>' in model_output) and not('</runcode>' in model_output):
+                model_output = model_output + '</runcode>'
             model_output_for_parsing = model_output.replace('<runcode>','```py').replace('</runcode>','```<end_code>')
             # this is for backward compatibility
             if not('```py' in model_output_for_parsing) and not('```<end_code>' in model_output_for_parsing):
                 model_output_for_parsing = model_output_for_parsing + """
 
 ```py
-# I still have work to do to complete the task.
-# when I finish or I need to ask for a new task, I will call final_answer(result).
+print('I still have work to do to complete the task.')
+print('When I finish or I need to ask for a new task, I will call final_answer(result) inside of the runcode tag.').
 ```<end_code>
 """
             # len3 = len(model_output)
