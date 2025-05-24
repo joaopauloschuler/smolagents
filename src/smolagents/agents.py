@@ -1409,7 +1409,7 @@ class CodeAgent(MultiStepAgent):
                     if self.stream_outputs:
                         output_stream = self.model.generate_stream(
                             input_messages,
-                            stop_sequences=["</runcode>"],
+                            stop_sequences=["</runcode>","Calling tools:"],
                             **additional_args,
                         )
                         output_text = ""
@@ -1426,7 +1426,7 @@ class CodeAgent(MultiStepAgent):
                     else:
                         chat_message: ChatMessage = self.model(
                             input_messages,
-                            stop_sequences=["</runcode>"],
+                            stop_sequences=["</runcode>","Calling tools:"],
                             **additional_args,
                         )
                         memory_step.model_output_message = chat_message
