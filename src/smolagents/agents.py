@@ -1444,28 +1444,30 @@ class CodeAgent(MultiStepAgent):
             #     model_output += "<end_code>"
             #     memory_step.model_output_message.content = model_output
 
-            str_len = len(str(model_output))
+            memory_step.model_output = model_output
+        except Exception as e:
+            raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
+        
+        str_len = 0
+        str_len_str = '0'
+
+        if model_output is not None:
+            model_output = str(model_output)
+            str_len = len(model_output)
             str_len_str = str(str_len)
+            if ('<runcode>' in model_output) and not('</runcode>' in model_output):
+                model_output = model_output + '</runcode>'
             self.logger.log_markdown(
                 content=model_output,
                 title="Output of the LLM with "+str_len_str+" chars:",
                 level=LogLevel.INFO,
             )
-
-            memory_step.model_output = model_output
-        except Exception as e:
-            raise AgentGenerationError(f"Error in generating model output:\n{e}", self.logger) from e
-
-        if model_output is not None:
-            model_output = str(model_output)
             # len1 = len(model_output)
             saved_files = self.save_files_from_text(model_output)
             model_output = self.remove_tags('savetofile', model_output)
             # len2 = len(model_output)
             appended_files = self.append_files_from_text(model_output)
             model_output = self.remove_tags('appendtofile', model_output)
-            if ('<runcode>' in model_output) and not('</runcode>' in model_output):
-                model_output = model_output + '</runcode>'
             model_output_for_parsing = model_output.replace('<runcode>','```py').replace('</runcode>','```<end_code>')
             # this is for backward compatibility
             if not('```py' in model_output_for_parsing) and not('```<end_code>' in model_output_for_parsing):
