@@ -140,13 +140,13 @@ def force_directories(file_path: str) -> None:
 def run_os_command(str_command: str, timeout: int = 60) -> str:
     """
     Runs an OS command and returns the output.
-    This implementation uses Popen with shell=True. 
+    This implementation uses Popen with shell=False. 
     Args:
       str_command: str
       timeout: int
     """
     command = shlex.split(str_command)
-    proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
+    proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=False)
     try:
         outs, errs = proc.communicate(input="", timeout=timeout)
     except subprocess.TimeoutExpired:
