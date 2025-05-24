@@ -495,7 +495,8 @@ Please detail what did you change.
     local_agent.run(task_description, reset=False)
     task_description="""Thank you! Love your work!
 In the case that you believe that you have not properly reviewed/tested it yet, please review/test your own solution now.
-After you test and bug fix it, please save the full updated source code that solves the task described in <task></task> into the folder '"""+solution_file+"""'.
+After you test and bug fix it, please save the full updated source code that solves the task described in <task></task> 
+into the folder '"""+solution_file+"""' respecting the original folder structure. Do not create updated copies of existing files.
 When you have finished, call the function final_answer("Task completed! YAY!") please.
 """
     print('Refine 2')
@@ -576,7 +577,7 @@ If you believe that this is not a good idea, you'll call the function final_answ
           solution_file = 'solution2/'
           task_description="""Thank you very much.
 Please mix parts of the solutions into a new solution.
-Save the new solution into the folder """+solution_file+""".
+Save the new solution into the folder """+solution_file+""" respecting the original folder structure. Do not create updated copies of existing files.
 When you have finished, call the function final_answer("Task completed! YAY!") please."""
           local_agent.run(task_description, reset=False)
           test_and_refine(local_agent, solution_file)
@@ -627,20 +628,17 @@ When you finish, call the function
 
 final_answer("I have finished the task.").
 
-Your goal is not to start a new solution. Your goal is to update the existing solution located in the folder """+solution_file+""".
+Your goal is not to start a new solution. Your goal is to update the existing solution located in the folder """+solution_file+""" respecting the original folder structure. Do not create updated copies of existing files.
 In the case that you save documentation, do not mention the folder """+solution_file+""" on it as this is a temporary working folder. You can certainly mention its subfolders.
-THE FULL SOLUTION IS INTENDED TO BE PLACED IN THIS FOLDER."""
+THE FULL SOLUTION IS INTENDED TO BE PLACED IN THIS FOLDER AND ITS SUBFOLDERS."""
             if alternatives_cnt==0:
               task_description += """
 As you are very intelligent, try to be bold by adding as much improvement to the existing solution.
 Try to add as much as you can in your first attempt to modify the existing solution."""
             local_agent.run(task_description, reset=False)
             local_agent.run("Do you need to review/test it a bit more?", reset=False)
-            task_description="""Fantastic! Save the full updated solution that solves the task described in <task></task> into the folder '"""+solution_file+"""'.
-You can follow this example for saving files:
-<savetofile filename="""+solution_file+""">
-print("your source code or text here")
-</savetofile>
+            task_description="""Fantastic! In the case that you need to save anything else, save the updates that solve the task described in <task></task> into the folder '"""+solution_file+"""' respecting the original folder structure. Do not create updated copies of existing files.
+If you need to save files, use the tags <savetofile></savetofile>. Then, you will celebrate: 
 <runcode>
 final_answer("Task completed! YAY!")
 </runcode>
