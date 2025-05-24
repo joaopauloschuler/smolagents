@@ -1475,7 +1475,7 @@ class CodeAgent(MultiStepAgent):
 
 ```py
 print('I still have work to do to complete the task.')
-print('When I finish or I need to ask for a new task, I will call final_answer(result) inside of the runcode tag.')
+print('When I finish or I need to ask for a new task, I will call <runcode>final_answer(result)</runcode>.')
 ```<end_code>
 """
             # len3 = len(model_output)
