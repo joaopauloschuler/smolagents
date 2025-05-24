@@ -201,7 +201,7 @@ These are the system tools
   {%- endif %}
 
 Here are the rules you should always follow to solve your task:
-1. Do some reflection on your own woek before giving a final answer.
+1. Do some reflection on your own work before giving a final answer.
 2. Use only variables that you have defined!
 3. Always use the right arguments for the tools. DO NOT pass the arguments as a dict as in 'answer = wiki({'query': "What is the place where James Bond lives?"})', but use the arguments directly as in 'answer = wiki(query="What is the place where James Bond lives?")'.
 4. Take care to not chain too many sequential tool calls in the same code block, especially when the output format is unpredictable. For instance, a call to search has an unpredictable return format, so do not have another tool call that depends on its output in the same block: rather output results with print() to use in the next block.
