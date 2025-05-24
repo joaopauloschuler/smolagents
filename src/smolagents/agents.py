@@ -1464,53 +1464,47 @@ class CodeAgent(MultiStepAgent):
             # len2 = len(model_output)
             appended_files = self.append_files_from_text(model_output)
             model_output = self.remove_tags('appendtofile', model_output)
+            model_output_for_parsing = model_output.replace('<runcode>','```py').replace('</runcode>','```<end_code>')
+            # this is for backward compatibility
+            if not('```py' in model_output_for_parsing) and not('```<end_code>' in model_output_for_parsing):
+                model_output_for_parsing = model_output_for_parsing + """
+
+```py
+# I still have work to do to complete the task.
+# when I finish or I need to ask for a new task, I will call final_answer(result).
+```<end_code>
+"""
             # len3 = len(model_output)
             # print('Lens:',len1, len2, len3)
 
         ### Parse output ###
         try:
-            code_action = fix_final_answer_code(parse_code_blobs(model_output))
+            code_action = fix_final_answer_code(parse_code_blobs(model_output_for_parsing))
         except Exception as e:
             code_example = """ Follow this example in <example></example>:
 <example>
-Any tags or comments.
+Any tags go here.
 
-Code:
-```py
+<runcode>
 print('the result of a computation for debug, test or verification.')
 # final_answer('I have completed the task') # use final_answer to say that you have completed the task or to ask for more tasks
 # You can leave the code section empty if you intend to continue to work in the next step. 
-```<end_code>
+</runcode>
 </example>
 """ 
-            error_msg = ""
-            if not ("```" in model_output):
-              error_msg = error_msg + """You missed adding the code section."""+code_example
-            elif not ("```py" in model_output):
-              error_msg = error_msg + """You missed adding python code."""+code_example
-            elif not ("<end_code>" in model_output):
-              error_msg = error_msg + """You missed adding <end_code> at the end of your code.""" +code_example
-            elif not ("```<end_code>" in model_output):
-              error_msg = error_msg + """You missed adding ```<end_code> at the end of your code."""+code_example
-            else:
-                error_msg = """Error in code parsing. Follow examples with the desired structure in the tags <example></example>:
+            error_msg = """Error in code parsing. Follow examples with the desired structure in the tags <example></example>:
 <example>
-Thought: I will use python code to compute the result of the operation and then return the final answer using the `final_answer` tool.
-Free will: I am going to solve this task with confidence.
-Tags:
 <savetofile filename="free-will.txt">
 I am going to solve this task with confidence.
 </savetofile>
-Code:
-```py
+<runcode>
 result = 5 + 3 + 1294.678
 final_answer(result)
-```<end_code>
+</runcode>
 </example>
 
 If you need to include any file in the file system, use the <includefile></includefile> tags. This is an example:
 <example>
-Tags:
 <savetofile filename="first_step.py">
 print("first step")
 </savetofile>
@@ -1519,44 +1513,38 @@ print("first step")
 print("second step")
 </savetofile>
 
-Code:
-```py
+<runcode>
 <includefile>first_step.py</includefile>
 <includefile>second_step.py</includefile>
-```<end_code>
+</runcode>
 </example>
 
 The above will run and print:
 first step
 second step
-
-REMEMBER: the Code section is mandatory. Make sure to test or verify any coding task before considering it completed.
 """
-                if (str_len>8000):
+            if (str_len>8000):
                     error_msg = error_msg + """
 If you are trying to save or run a too big file, you can try to save and append in steps:
 <example>
-Tags:
 <savetofile filename="large_file.txt">
 First section, function or chapter
 </savetofile>
-```py
+<runcode>
 print('Starting well.')
-```<end_code>
-Tags:
+</runcode>
 <appendtofile filename="large_file.txt">
 Second section, function or chapter
 </savetofile>
-```py
+<runcode>
 print('Continuing awesome!')
-```<end_code>
-Tags:
+</runcode>
 <appendtofile filename="large_file.txt">
 Third section, function or chapter
 </savetofile>
-```py
+<runcode>
 print('Finishing fantastic!!!')
-```<end_code>
+</runcode>
 </example>
 
 You can combine the above to be able to run very large portions of python code if required.
