@@ -421,9 +421,9 @@ You can follow this example:
 <savetofile filename="""+solution_file+""">
 print("your source code or text here")
 </savetofile>
-```py
+<runcode>
 final_answer("Task completed! YAY!")
-```<end_code>
+</runcode>
 """
             local_agent.run(task_description, reset=False)
             # refine solution code here
@@ -451,9 +451,9 @@ You can follow this example:
 <savetofile filename="""+solution_file+""">
 print("your source code or text here")
 </savetofile>
-```py
+<runcode>
 final_answer("Task completed! YAY!")
-```<end_code>
+</runcode>
 """
               local_agent.run(task_description, reset=False)
 
@@ -528,11 +528,11 @@ with any advice that you would like to give to yourself to a future version of y
     os.makedirs("solution2", exist_ok=True)  
     os.makedirs("solution3", exist_ok=True)  
     os.makedirs("best_solution", exist_ok=True)
-    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution1/', reset=True)
+    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution1/. In the case that you save documentation, do not mention the folder solution1 on it as this is a temporary working folder.', reset=True)
     test_and_refine(local_agent, 'solution1/')
-    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution2/', reset=True)
+    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution2/. In the case that you save documentation, do not mention the folder solution2 on it as this is a temporary working folder.', reset=True)
     test_and_refine(local_agent, 'solution2/')
-    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution3/', reset=True)
+    local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution3/. In the case that you save documentation, do not mention the folder solution3 on it as this is a temporary working folder.', reset=True)
     test_and_refine(local_agent, 'solution3/')
   for i in range(steps):
     try:
@@ -628,7 +628,8 @@ When you finish, call the function
 final_answer("I have finished the task.").
 
 Your goal is not to start a new solution. Your goal is to update the existing solution located in the folder """+solution_file+""".
-THE FULL SOLUTION IS INTENDED TO BE PLACED IN A SINGLE FOLDER."""
+In the case that you save documentation, do not mention the folder """+solution_file+""" on it as this is a temporary working folder. You can certainly mention its subfolders.
+THE FULL SOLUTION IS INTENDED TO BE PLACED IN THIS FOLDER."""
             if alternatives_cnt==0:
               task_description += """
 As you are very intelligent, try to be bold by adding as much improvement to the existing solution.
@@ -640,9 +641,9 @@ You can follow this example for saving files:
 <savetofile filename="""+solution_file+""">
 print("your source code or text here")
 </savetofile>
-```py
+<runcode>
 final_answer("Task completed! YAY!")
-```<end_code>
+</runcode>
 """
             local_agent.run(task_description, reset=False)
             # refine solution code here
