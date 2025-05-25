@@ -256,6 +256,7 @@ def evolutive_problem_solver(p_coder_model,
   add_base_tools=True,
   step_callbacks=STEP_CALLBACKS,
   log_level = LogLevel.DEBUG,
+  refine = True
   ):
   def get_local_agent():
     coder_agent = CodeAgent(
@@ -309,11 +310,11 @@ with any advice that you would like to give to yourself to a future version of y
   if start_now:
     local_agent = get_local_agent()
     local_agent.run(local_task_description + motivation + ' Save the solution into the file solution1'+fileext, reset=True)
-    test_and_refine(local_agent, 'solution1'+fileext)
+    if refine: test_and_refine(local_agent, 'solution1'+fileext)
     local_agent.run(local_task_description + motivation + ' Save the solution into the file solution2'+fileext, reset=True)
-    test_and_refine(local_agent, 'solution2'+fileext)
+    if refine: test_and_refine(local_agent, 'solution2'+fileext)
     local_agent.run(local_task_description + motivation + ' Save the solution into the file solution3'+fileext, reset=True)
-    test_and_refine(local_agent, 'solution3'+fileext)
+    if refine: test_and_refine(local_agent, 'solution3'+fileext)
   for i in range(steps):
     try:
       local_agent = get_local_agent()
@@ -362,7 +363,7 @@ Please mix parts of the solutions into a new solution.
 Save the new solution into the file """+solution_file+""".
 When you have finished, call the function final_answer("Task completed! YAY!") please."""
           local_agent.run(task_description, reset=False)
-          test_and_refine(local_agent, solution_file)
+          if refine: test_and_refine(local_agent, solution_file)
           # when mixing, we don't try to pick the best of 3 solutions.
           continue
 
@@ -427,7 +428,7 @@ final_answer("Task completed! YAY!")
 """
             local_agent.run(task_description, reset=False)
             # refine solution code here
-            test_and_refine(local_agent, solution_file)
+            if refine: test_and_refine(local_agent, solution_file)
 
             if get_file_size('best_solution.best') > get_file_size(solution_file):
               task_description=""" Hello super-intelligence!
@@ -461,6 +462,69 @@ final_answer("Task completed! YAY!")
       print('ERROR')
   return load_string_from_file('best_solution.best')
 
+def fast_solver(p_coder_model,
+  task_str,
+  agent_steps:int,
+  system_prompt = DEFAULT_THINKER_SYSTEM_PROMPT,
+  fileext:str='.md',
+  tools=DEFAULT_THINKER_TOOLS,
+  executor_type='exec',
+  add_base_tools=True,
+  step_callbacks=STEP_CALLBACKS,
+  log_level = LogLevel.DEBUG
+  ):
+  def get_local_agent():
+    coder_agent = CodeAgent(
+      tools=tools,
+      model=p_coder_model,
+      additional_authorized_imports=['*'],
+      add_base_tools=add_base_tools,
+      max_steps=agent_steps,
+      step_callbacks=step_callbacks,
+      executor_type=executor_type
+      )
+    coder_agent.set_system_prompt(system_prompt)
+    coder_agent.logger.log_level = log_level
+    return coder_agent
+  
+  local_task_description = 'The task description is enclosed in the tags <task></task>:' + \
+    '<task>'+task_str+'</task>'
+  motivation = \
+      " Please, try to produce a solution that is as extensive, detailed and rich as you can." + \
+      " Feel free to show your intelligence with no restrains. It is the time for you to show the world your full power." + \
+      " Feel free to use your creativity and true hidden skills."
+  final_file_name = 'final_solution'+fileext
+  local_agent = get_local_agent()
+  local_agent.run(local_task_description + motivation + ' Save the solution into the file solution1'+fileext, reset=True)
+  local_agent.run(local_task_description + motivation + ' Save the solution into the file solution2'+fileext, reset=True)
+  local_agent.run(local_task_description + motivation + ' Save the solution into the file solution3'+fileext, reset=True)
+  task_description=""" Hello super-intelligence!
+We have 3 possible solutions for the task <task>"""+local_task_description+"""</task>
+The 3 solutions are given in the tags:
+<solution1></solution1>
+<solution2></solution2>
+<solution3></solution3>
+
+These are the existing solutions:
+<solution1>"""+load_string_from_file('solution1'+fileext)+"""</solution1>
+<solution2>"""+load_string_from_file('solution2'+fileext)+"""</solution2>
+<solution3>"""+load_string_from_file('solution3'+fileext)+"""</solution3>
+
+Your next step is mixing the already 3 existing solutions in the tags to form a better an final solution.
+
+Save your final solution into the file '"""+final_file_name+"""'.
+
+When you finish, you can run:
+<runcode>final_answer("I HAVE FINISHED! YAY!").
+DO NOT CODE ANYTHING EXCEPT FOR CALLING final_answer WITH TEXT INSIDE ONLY.
+
+Your goal is to mix the best parts of each solution to form a final solution.
+If one of the solutions is already perfect, you can just copy it into the final solution.
+"""+motivation
+  local_agent.run(task_description, reset=True)
+  return True
+  
+
 def evolutive_problem_solver_folder(p_coder_model,
   task_str,
   agent_steps:int,
@@ -472,6 +536,7 @@ def evolutive_problem_solver_folder(p_coder_model,
   add_base_tools=True,
   step_callbacks=STEP_CALLBACKS,
   log_level = LogLevel.DEBUG,
+  refine = True
   ):
   def get_local_agent():
     coder_agent = CodeAgent(
@@ -530,11 +595,11 @@ with any advice that you would like to give to yourself to a future version of y
     os.makedirs("solution3", exist_ok=True)  
     os.makedirs("best_solution", exist_ok=True)
     local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution1/. In the case that you save documentation, do not mention the folder solution1 on it as this is a temporary working folder.', reset=True)
-    test_and_refine(local_agent, 'solution1/')
+    if refine: test_and_refine(local_agent, 'solution1/')
     local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution2/. In the case that you save documentation, do not mention the folder solution2 on it as this is a temporary working folder.', reset=True)
-    test_and_refine(local_agent, 'solution2/')
+    if refine: test_and_refine(local_agent, 'solution2/')
     local_agent.run(local_task_description + motivation + ' Save the solution into the folder solution3/. In the case that you save documentation, do not mention the folder solution3 on it as this is a temporary working folder.', reset=True)
-    test_and_refine(local_agent, 'solution3/')
+    if refine: test_and_refine(local_agent, 'solution3/')
   for i in range(steps):
     try:
       local_agent = get_local_agent()
@@ -580,7 +645,7 @@ Please mix parts of the solutions into a new solution.
 Save the new solution into the folder """+solution_file+""" respecting the original folder structure. Do not create updated copies of existing files.
 When you have finished, call the function final_answer("Task completed! YAY!") please."""
           local_agent.run(task_description, reset=False)
-          test_and_refine(local_agent, solution_file)
+          if refine: test_and_refine(local_agent, solution_file)
           # when mixing, we don't try to pick the best of 3 solutions.
           continue
 
@@ -645,7 +710,7 @@ final_answer("Task completed! YAY!")
 """
             local_agent.run(task_description, reset=False)
             # refine solution code here
-            test_and_refine(local_agent, solution_file)
+            if refine: test_and_refine(local_agent, solution_file)
     except:
       print('ERROR')
   return True # load_string_from_file('best_solution.best')
