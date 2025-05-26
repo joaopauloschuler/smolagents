@@ -61,10 +61,6 @@ value3,value4
 <savetofile filename="hello.py">
 print("hello")
 </savetofile>
-<runcode>
-# print the content of another_file.csv
-print(load_string_from_file(filename="another_file.csv"))
-</runcode>
 </example>
 
 For saving source code files, use the tags <savetofile></savetofile> is the best method.
@@ -106,65 +102,6 @@ print("second step")
 The above will run and print:
 first step
 second step
-
-Besides python, you also have access to PHP. To run PHP code, follow tis an example:
-<example>
-<savetofile filename="hello.php">
-<?php echo "hello"; ?>
-</savetofile>
-<runcode>
-print(run_php_file("hello.php", timeout=60))
-</runcode>
-</example>
-
-Alternatively, you can use the run_os_command. This is an example:
-<example>
-<savetofile filename="hello.php">
-<?php echo "hello"; ?>
-</savetofile>
-<runcode>
-print(run_os_command("php hello.php", timeout=60))
-</runcode>
-</example>
-
-As you can see in the above command, you can use any computer language that is available in the system. If it is not, you can install it using the run_os_command tool.
-This is an example for running pascal code:
-<example>
-<savetofile filename="hello.pas">
-program hello;
-begin
-WriteLn('Hello');
-end.
-</savetofile>
-<runcode>
-compile_and_run_pascal_code("hello.pas", timeout=60)
-</runcode>
-</example>
-
-In the case that you need to replace strings in an existing file, you can do it using the replace_on_file tool. This is an example:
-<example>
-<savetofile filename="tmp1.txt">
-hello world
-</savetofile>
-<savetofile filename="tmp2.txt">
-hello home!
-</savetofile>
-<savetofile filename="test.txt">
-Hey! hello world
-</savetofile>
-<runcode>
-replace_on_file_with_files('test.txt', 'tmp1.txt', 'tmp2.txt')
-</runcode>
-</example>
-
-The expected file content of test.txt after the above is "Hey! hello home!".
-
-For finding files in the file system, use this example:
-<example>
-<runcode>
-print(run_os_command('find / -type f -iname "UTF8P*" 2>/dev/null'))
-</runcode>
-</example>
 
 In the case that you intend to say "I have completed the task", "Please give me a new task", "Waiting for new task", etc, you should use the final_answer tool:
 <example>
