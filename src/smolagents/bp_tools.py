@@ -262,6 +262,7 @@ compile_and_run_pascal_code("hello.pas", timeout=60)
   else:
     print('Compilation error.')
 
+@tool
 def source_code_to_string(folder_name: str,  allowed_extensions: tuple = ('.py', '.txt', '.pas', '.inc', '.md', '.pp', '.lpr', '.dpr', '.lfm', '.dfm', '.php', '.c', '.cc', '.cpp')) -> str:
     """
     Scans a folder and subfolders for specific source code file types (.py, .txt, .pas, .inc, .md),
