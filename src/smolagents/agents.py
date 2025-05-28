@@ -1487,6 +1487,9 @@ print('When I finish or I need to ask for a new task, I will call <runcode>final
         ### Parse output ###
         try:
             code_action = fix_final_answer_code(parse_code_blobs(model_output_for_parsing))
+            if (len(saved_files)==0):
+                code_action = """# INFO: No file was saved in this step. If you need to save files, use the savetofile tag.
+"""+code_action
         except Exception as e:
             code_example = """ Follow this example in <example></example>:
 <example>
