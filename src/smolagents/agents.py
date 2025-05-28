@@ -29,6 +29,7 @@ from logging import getLogger
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 from .bp_executors import LocalExecExecutor
+from .bp_tools import get_file_size
 
 import jinja2
 import yaml
@@ -684,7 +685,8 @@ You have been provided with these additional arguments, that you can access usin
               force_directories(file['filename'])
               with open(file['filename'], 'w') as f:
                 f.write(self.replace_include_files(file['content']))
-                self.logger.log("Saved file "+file['filename']+".", LogLevel.INFO)
+                msg_str="Saved '"+file['filename']+"' with "+str(get_file_size(file['filename']))+" bytes."
+                self.logger.log(msg_str, LogLevel.INFO)
         return files
 
     def append_files_from_text(self, txt):
@@ -692,7 +694,8 @@ You have been provided with these additional arguments, that you can access usin
         for file in files:
               with open(file['filename'], 'a') as f:
                 f.write(self.replace_include_files(file['content']))
-                self.logger.log("Appended file "+file['filename']+".", LogLevel.INFO)
+                msg_str="Appended '"+file['filename']+"'. Total size: "+str(get_file_size(file['filename']))+" bytes."
+                self.logger.log(msg_str, LogLevel.INFO)
         return files
                 
     def replace_include_tags(self, txt, files):
