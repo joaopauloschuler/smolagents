@@ -209,6 +209,70 @@ As you can see in the above command, you can use any computer language that is a
     return result
 
 @tool
+def get_line_from_file(file_name: str, line_number: int) -> str:
+    """
+    Reads a specified line from a text file.
+    This fuction was coded by Gemini 2.5Flash.
+
+    This function is good for finding the line where the compiler gave an error. As per example:
+Free Pascal Compiler version 3.2.2+dfsg-9ubuntu1 [2022/04/11] for x86_64
+Copyright (c) 1993-2021 by Florian Klaempfl and others
+Target OS: Linux for x86-64
+Compiling solution1/src/jpmmath.pas
+jpmmath.pas(301,19) Warning: function result variable of a managed type does not seem to be initialized
+
+In the above example, to find the error, you can call:
+<runcode>
+print(get_line_from_file('solution1/src/jpmmath.pas', 301))
+</runcode>
+
+    Args:
+        file_name: str The path to the text file.
+        line_number: int The 1-based index of the line to retrieve.
+                           For example, 1 for the first line, 2 for the second, etc.
+
+    Returns:
+        str: The content of the specified line, with leading/trailing whitespace
+             (including the newline character) removed.
+
+    Raises:
+        ValueError: If file_name is not a valid string, or line_number is not
+                    a positive integer.
+        FileNotFoundError: If the specified file does not exist.
+        IndexError: If the line_number is out of the bounds of the file
+                    (e.g., requesting line 10 from a 5-line file).
+        IOError: For other potential I/O errors during file reading.
+    """
+    # 1. Input Validation
+    if not isinstance(file_name, str) or not file_name.strip():
+        raise ValueError("file_name must be a non-empty string.")
+    if not isinstance(line_number, int):
+        raise TypeError("line_number must be an integer.")
+    if line_number <= 0:
+        raise ValueError("line_number must be a positive integer (1-based).")
+
+    try:
+        with open(file_name, 'r', encoding='utf-8') as f:
+            # Enumerate starts from 0 by default, so we compare with line_number - 1
+            for current_line_index, line_content in enumerate(f):
+                if current_line_index == line_number - 1:
+                    # rstrip() removes trailing whitespace, including the newline char
+                    return line_content.rstrip('\n\r') # Handles both \n and \r\n
+
+            # If the loop finishes, it means the requested line_number was
+            # beyond the total number of lines in the file.
+            raise IndexError(f"Line number {line_number} is out of bounds for file '{file_name}'.")
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Error: File '{file_name}' not found.")
+    except IOError as e:
+        # Catch other potential I/O errors (e.g., permission denied)
+        raise IOError(f"An I/O error occurred while reading file '{file_name}': {e}")
+    except Exception as e:
+        # Catch any other unexpected errors
+        raise Exception(f"An unexpected error occurred: {e}")
+
+@tool
 def run_php_file(filename: str, timeout: int = 60) -> str:
     """
 Runs a PHP file and returns the output.
