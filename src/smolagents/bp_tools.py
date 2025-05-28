@@ -262,8 +262,7 @@ compile_and_run_pascal_code("hello.pas", timeout=60)
   else:
     print('Compilation error.')
 
-@tool
-def source_code_to_string(folder_name: str) -> str:
+def source_code_to_string(folder_name: str,  allowed_extensions: tuple = ('.py', '.txt', '.pas', '.inc', '.md', '.pp', '.lpr', '.dpr', '.lfm', '.dfm', '.php', '.c', '.cc', '.cpp')) -> str:
     """
     Scans a folder and subfolders for specific source code file types (.py, .txt, .pas, .inc, .md),
     concatenates their content into a single string with XML-like tags,
@@ -274,6 +273,7 @@ def source_code_to_string(folder_name: str) -> str:
 
     Args:
         folder_name: The path to the root folder to scan.
+        allowed_extensions: tuple of allowed file extensions to scan. Defaults to ('.py', '.txt', '.pas', '.inc', '.md', '.pp', '.lpr', '.dpr', '.lfm', '.dfm', '.php', '.c', '.cc', '.cpp').
 
     Returns:
         A single string containing the concatenated content of the scanned files,
@@ -285,8 +285,7 @@ def source_code_to_string(folder_name: str) -> str:
         return ""
 
     relevant_files_info = []
-    allowed_extensions = ('.py', '.txt', '.pas', '.inc', '.md', '.pp', '.lpr', '.dpr', '.lfm', '.dfm', '.php', '.c', '.cc', '.cpp')
-
+   
     for root, _, files in os.walk(folder_name):
         for filename in files:
             filepath = os.path.join(root, filename)
@@ -356,6 +355,7 @@ def source_code_to_string(folder_name: str) -> str:
 
     # Join all formatted blocks with a newline separator between blocks
     return '\n'.join(output_string_parts)
+
 
 @tool
 def string_to_source_code(string_with_files: str, output_base_dir: str = '.', overwrite: bool = True, verbose: bool = True) -> None:
