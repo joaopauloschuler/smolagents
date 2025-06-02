@@ -20,7 +20,7 @@ limitations under the License.
 * 📚 Generate and update documentation including READMEs for existing codebases.
 * 🔍 Research and write technical documentation.
 * 👥 Collaborate across multiple agents to solve complex problems.
-* 🛠️ Compile, test, and debug source code in various languages.
+* 🛠️ Compile, test, and debug source code in various computing languages.
 
 ***
 ### 🔥🚨 EXTREME SECURITY RISK 🚨🔥
